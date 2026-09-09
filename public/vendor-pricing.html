@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Choose Your Plan - Vendor Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .plan-card { @apply border-2 border-gray-200 transition-all duration-300; }
+        .plan-card:hover { @apply border-blue-400 shadow-lg; }
+        .plan-card.featured { @apply border-blue-500 shadow-xl scale-105; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Header -->
+    <header class="bg-white border-b border-gray-200 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div class="flex items-center justify-between">
+                <a href="index.html" class="flex items-center space-x-2">
+                    <img src="../images/logo.png" alt="Wishlist Logo" class="w-10 h-10 object-contain">
+                    <span class="text-xl font-bold text-gray-900">Wishlist</span>
+                </a>
+                <button id="logoutBtn" class="text-gray-600 hover:text-gray-900 font-medium">Logout</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 py-12">
+        <!-- Header -->
+        <div class="text-center mb-12">
+            <h1 class="text-4xl font-bold text-gray-900 mb-4">Choose Your Subscription Plan</h1>
+            <p class="text-xl text-gray-600">Select the perfect plan for your business and start adding deals today</p>
+        </div>
+
+        <!-- Pricing Cards -->
+        <div class="grid md:grid-cols-3 gap-8 mb-12" id="pricingCards">
+            <!-- Cards will be loaded here -->
+        </div>
+
+        <!-- Features Comparison -->
+        <div class="bg-white rounded-lg shadow-lg p-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6">Compare Plans</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="border-b border-gray-200">
+                            <th class="text-left py-3 px-4 font-semibold text-gray-900">Feature</th>
+                            <th class="text-center py-3 px-4 font-semibold text-gray-900">Basic</th>
+                            <th class="text-center py-3 px-4 font-semibold text-gray-900">Professional</th>
+                            <th class="text-center py-3 px-4 font-semibold text-gray-900">Enterprise</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        <tr>
+                            <td class="py-3 px-4 font-medium text-gray-900">Max Deals</td>
+                            <td class="text-center py-3 px-4 text-gray-600">10</td>
+                            <td class="text-center py-3 px-4 text-gray-600">50</td>
+                            <td class="text-center py-3 px-4 text-gray-600">Unlimited</td>
+                        </tr>
+                        <tr>
+                            <td class="py-3 px-4 font-medium text-gray-900">Analytics</td>
+                            <td class="text-center py-3 px-4"><span class="text-red-500">✕</span></td>
+                            <td class="text-center py-3 px-4"><span class="text-green-500">✓</span></td>
+                            <td class="text-center py-3 px-4"><span class="text-green-500">✓</span></td>
+                        </tr>
+                        <tr>
+                            <td class="py-3 px-4 font-medium text-gray-900">Custom Branding</td>
+                            <td class="text-center py-3 px-4"><span class="text-red-500">✕</span></td>
+                            <td class="text-center py-3 px-4"><span class="text-green-500">✓</span></td>
+                            <td class="text-center py-3 px-4"><span class="text-green-500">✓</span></td>
+                        </tr>
+                        <tr>
+                            <td class="py-3 px-4 font-medium text-gray-900">Priority Support</td>
+                            <td class="text-center py-3 px-4"><span class="text-red-500">✕</span></td>
+                            <td class="text-center py-3 px-4"><span class="text-red-500">✕</span></td>
+                            <td class="text-center py-3 px-4"><span class="text-green-500">✓</span></td>
+                        </tr>
+                        <tr>
+                            <td class="py-3 px-4 font-medium text-gray-900">API Access</td>
+                            <td class="text-center py-3 px-4"><span class="text-red-500">✕</span></td>
+                            <td class="text-center py-3 px-4"><span class="text-red-500">✕</span></td>
+                            <td class="text-center py-3 px-4"><span class="text-green-500">✓</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Paystack Script -->
+    <script src="https://js.paystack.co/v1/inline.js"></script>
+    <script src="../public/vendor-pricing.js"></script>
+</body>
+</html>

@@ -10,9 +10,16 @@
     "format": "prettier --write \"**/*.{js,jsx,json,css,md,html}\""
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
     "dotenv": "^8.2.0",
     "express": "^4.17.1",
-    "mongoose": "^9.1.5"
+    "express-async-errors": "^3.1.1",
+    "helmet": "^8.3.0",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.1.5",
+    "morgan": "^1.11.0",
+    "nodemon": "^3.1.14"
   },
   "devDependencies": {
     "prettier": "^2.8.8"

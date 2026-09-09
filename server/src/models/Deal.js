@@ -1,6 +1,12 @@
 const mongoose = require('mongoose');
 
 const dealSchema = new mongoose.Schema({
+  vendor: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Vendor',
+    required: true,
+    index: true,
+  },
   title: { type: String, required: true },
   description: { type: String },
   category: { type: String, required: true, index: true },
@@ -12,6 +18,7 @@ const dealSchema = new mongoose.Schema({
   image: { type: String },
   imageUrl: { type: String }, // Preferred field name
   dealLink: { type: String }, // Link to the original deal page
+  productLink: { type: String }, // Direct link to product page
   available: { type: Number, default: 1 },
   location: { type: String },
   store: { type: String },

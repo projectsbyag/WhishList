@@ -313,6 +313,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Helper function to get user role
+    function getUserRole() {
+        const token = localStorage.getItem('token');
+        if (!token) return 'guest';
+        
+        try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            return payload.role || 'user';
+        } catch (err) {
+            return 'user';
+        }
+    }
+
     function toggleProfileDropdown(btn, email) {
         let dropdown = document.getElementById('profileDropdown');
         if (dropdown) {
@@ -326,19 +339,31 @@ document.addEventListener('DOMContentLoaded', () => {
         dropdown = document.createElement('div');
         dropdown.id = 'profileDropdown';
         dropdown.className = 'absolute top-16 right-4 bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-4 w-64 z-[9999] border border-gray-200 dark:border-gray-700';
+        const userRole = getUserRole();
         dropdown.innerHTML = `
             <div class="border-b border-gray-200 dark:border-gray-700 pb-3 mb-3">
                 <p class="text-sm text-gray-500 dark:text-gray-400">Signed in as</p>
                 <p class="font-semibold text-gray-900 dark:text-white truncate">${email || 'User'}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Role: ${userRole}</p>
             </div>
             <a href="profile.html" id="profileLink" class="w-full text-left px-4 py-2 text-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/20 rounded-lg font-medium transition-colors flex items-center space-x-2 mb-2">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A11.955 11.955 0 0112 15c2.485 0 4.78.748 6.879 2.03M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                 <span>Profile</span>
             </a>
-            ${isAdmin ? `
-            <a href="admin.html" id="adminLink" class="w-full text-left px-4 py-2 text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded-lg font-medium transition-colors flex items-center space-x-2 mb-2">
+            ${userRole === 'vendor' ? `
+            <a href="vendor-dashboard.html" id="vendorLink" class="w-full text-left px-4 py-2 text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded-lg font-medium transition-colors flex items-center space-x-2 mb-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                <span>Vendor Dashboard</span>
+            </a>` : ''}
+            ${userRole === 'admin' ? `
+            <a href="admin-vendors.html" id="adminLink" class="w-full text-left px-4 py-2 text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded-lg font-medium transition-colors flex items-center space-x-2 mb-2">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                <span>Admin Dashboard</span>
+                <span>Admin Vendors</span>
+            </a>` : ''}
+            ${userRole !== 'vendor' && userRole !== 'admin' ? `
+            <a href="vendor-register.html" id="becomeVendorLink" class="w-full text-left px-4 py-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg font-medium transition-colors flex items-center space-x-2 mb-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m0 0h6m-6-6h6m0 0v6"></path></svg>
+                <span>Become a Vendor</span>
             </a>` : ''}
             <button id="logoutBtn" class="w-full text-left px-4 py-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg font-medium transition-colors flex items-center space-x-2">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
@@ -381,6 +406,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const menuBtn = document.getElementById('menu-button');
         if (menuBtn) {
             menuBtn.addEventListener('click', () => {
+                const userRole = getUserRole();
                 const menu = document.createElement('div');
                 menu.className = 'fixed inset-0 bg-gray-900/95 backdrop-blur-sm z-[9999] flex flex-col items-center justify-center animate-fadeIn';
                 menu.innerHTML = `
@@ -389,6 +415,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         <a href="index.html" class="block text-white text-2xl font-bold hover:text-yellow-400 transition-colors">Home</a>
                         <a href="deals.html" class="block text-white text-2xl font-bold hover:text-yellow-400 transition-colors">Deals</a>
                         <a href="wishlist.html" class="block text-white text-2xl font-bold hover:text-yellow-400 transition-colors">Wishlist</a>
+                        ${userRole === 'vendor' ? `<a href="vendor-dashboard.html" class="block text-yellow-400 text-2xl font-bold hover:text-yellow-300 transition-colors">Vendor Dashboard</a>` : ''}
+                        ${userRole === 'admin' ? `<a href="admin-vendors.html" class="block text-yellow-400 text-2xl font-bold hover:text-yellow-300 transition-colors">Admin Vendors</a>` : ''}
+                        ${userRole !== 'vendor' && userRole !== 'admin' ? `<a href="vendor-register.html" class="block text-blue-400 text-2xl font-bold hover:text-blue-300 transition-colors">Become Vendor</a>` : ''}
                         ${!localStorage.getItem('token') ? '<a href="login.html" class="block text-white text-2xl font-bold hover:text-yellow-400 transition-colors">Login</a>' : ''}
                     </nav>
                 `;

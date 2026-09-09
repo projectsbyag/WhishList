@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vendor Management - Admin Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .status-active { @apply bg-green-100 text-green-800; }
+        .status-inactive { @apply bg-gray-100 text-gray-800; }
+        .status-suspended { @apply bg-red-100 text-red-800; }
+        .status-cancelled { @apply bg-yellow-100 text-yellow-800; }
+        .tier-basic { @apply bg-blue-100 text-blue-800; }
+        .tier-professional { @apply bg-purple-100 text-purple-800; }
+        .tier-enterprise { @apply bg-indigo-100 text-indigo-800; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Fixed Header -->
+    <header class="bg-white border-b border-gray-200 shadow-sm fixed top-0 left-0 right-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <a href="index.html" class="flex items-center space-x-2">
+                        <img src="../images/logo.png" alt="Wishlist Logo" class="w-10 h-10 object-contain">
+                        <span class="text-xl font-bold text-gray-900">Vendor Management</span>
+                    </a>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="admin.html" class="text-gray-600 hover:text-gray-900 font-medium transition-colors">Back to Admin</a>
+                    <button id="logoutBtn" class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium transition-colors">
+                        Logout
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24">
+        <!-- Page Title -->
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-900">Vendor Management</h1>
+            <p class="text-gray-600 mt-1">Manage vendor accounts, subscriptions, and deals</p>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
+            <div class="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+                <p class="text-gray-500 text-sm font-medium">Total Vendors</p>
+                <p class="text-2xl font-bold text-gray-900 mt-2" id="totalVendors">0</p>
+            </div>
+            <div class="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+                <p class="text-gray-500 text-sm font-medium">Active</p>
+                <p class="text-2xl font-bold text-green-600 mt-2" id="activeVendors">0</p>
+            </div>
+            <div class="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+                <p class="text-gray-500 text-sm font-medium">Inactive</p>
+                <p class="text-2xl font-bold text-gray-600 mt-2" id="inactiveVendors">0</p>
+            </div>
+            <div class="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+                <p class="text-gray-500 text-sm font-medium">Suspended</p>
+                <p class="text-2xl font-bold text-red-600 mt-2" id="suspendedVendors">0</p>
+            </div>
+            <div class="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+                <p class="text-gray-500 text-sm font-medium">Total Revenue</p>
+                <p class="text-2xl font-bold text-blue-600 mt-2" id="totalRevenue">$0</p>
+            </div>
+        </div>
+
+        <!-- Filters and Search -->
+        <div class="bg-white rounded-lg p-6 shadow-sm border border-gray-200 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Search Vendor</label>
+                    <input type="text" id="searchInput" placeholder="Store name or email..." 
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Subscription Status</label>
+                    <select id="statusFilter" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="">All Status</option>
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                        <option value="suspended">Suspended</option>
+                        <option value="cancelled">Cancelled</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Subscription Tier</label>
+                    <select id="tierFilter" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="">All Tiers</option>
+                        <option value="basic">Basic</option>
+                        <option value="professional">Professional</option>
+                        <option value="enterprise">Enterprise</option>
+                    </select>
+                </div>
+                <div class="flex items-end">
+                    <button id="filterBtn" class="w-full px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors">
+                        Apply Filters
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Vendors Table -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Store Name</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Email</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Category</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Subscription</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Status</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Deals</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="vendorsList" class="divide-y divide-gray-200">
+                        <!-- Vendors will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+            <!-- Pagination -->
+            <div class="bg-gray-50 px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+                <div class="text-sm text-gray-600" id="pageInfo">Page 1</div>
+                <div class="flex space-x-2">
+                    <button id="prevBtn" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50">Previous</button>
+                    <button id="nextBtn" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50">Next</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Edit Vendor Modal -->
+    <div id="editModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-lg max-w-2xl w-full mx-4 max-h-96 overflow-y-auto">
+            <div class="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+                <h2 class="text-xl font-bold text-gray-900">Edit Vendor</h2>
+                <button class="text-gray-400 hover:text-gray-600" onclick="closeEditModal()">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Store Name</label>
+                        <input type="text" id="editStoreName" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                        <input type="email" id="editEmail" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                        <select id="editCategory" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            <option value="restaurants">Restaurants</option>
+                            <option value="hotels">Hotels</option>
+                            <option value="airlines">Airlines</option>
+                            <option value="groceries">Groceries</option>
+                            <option value="electronics">Electronics</option>
+                            <option value="fashion">Fashion</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                        <input type="tel" id="editPhone" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div class="col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                        <input type="text" id="editAddress" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div class="col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Website</label>
+                        <input type="url" id="editWebsite" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Verification Status</label>
+                        <select id="editVerification" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            <option value="pending">Pending</option>
+                            <option value="verified">Verified</option>
+                            <option value="rejected">Rejected</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="border-t border-gray-200 px-6 py-4 flex justify-end space-x-3">
+                <button onclick="closeEditModal()" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">Cancel</button>
+                <button onclick="saveVendorEdit()" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- View Details Modal -->
+    <div id="detailsModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-lg max-w-2xl w-full mx-4 max-h-96 overflow-y-auto">
+            <div class="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+                <h2 class="text-xl font-bold text-gray-900">Vendor Details</h2>
+                <button class="text-gray-400 hover:text-gray-600" onclick="closeDetailsModal()">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="p-6" id="detailsContent">
+                <!-- Details will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <script src="../public/admin-vendors.js"></script>
+</body>
+</html>
