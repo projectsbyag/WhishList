@@ -4,7 +4,7 @@ const dealSchema = new mongoose.Schema({
   vendor: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Vendor',
-    required: true,
+    required: false, // Optional to allow demo/sample deals
     index: true,
   },
   title: { type: String, required: true },

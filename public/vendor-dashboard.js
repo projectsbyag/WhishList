@@ -257,8 +257,8 @@ async function saveDeal() {
       location: document.getElementById('dealLocation').value,
     };
 
-    if (!dealData.title || !dealData.category || !dealData.discount || !dealData.productLink) {
-      showToast('Please fill in all required fields', 'error');
+    if (!dealData.title || !dealData.category || !dealData.discount) {
+      showToast('Please fill in all required fields (Title, Category, Discount)', 'error');
       return;
     }
 

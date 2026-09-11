@@ -66,20 +66,24 @@ document.addEventListener('DOMContentLoaded', () => {
             const category = d.category ? `<span class="inline-block text-xs px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200">${capitalize(d.category)}</span>` : '';
             const discount = formatDiscount(d.discount);
             // Choose image from multiple possible fields and fallback to placeholder
-            const imageSrc = d.image || d.imageUrl || d.image_url || d.imagePath || d.image_path || d.img || '/images/default.png';
+            let imageSrc = d.image || d.imageUrl || d.image_url || d.imagePath || d.image_path || d.img;
+            // If no image, use local placeholder generator
+            if (!imageSrc) {
+              imageSrc = '/api/placeholder/400/300';
+            }
             const expiryText = formatDate(expires);
             const isExpired = expires ? (new Date(expires).getTime() < Date.now()) : false;
             const status = isExpired ? `<span class="text-xs px-2 py-1 rounded-full bg-red-100 text-red-700">Expired</span>` : `<span class="text-xs px-2 py-1 rounded-full bg-green-100 text-green-700">Active</span>`;
             card.innerHTML = `
                 <div class="bg-yellow-400 p-6 relative h-40 overflow-hidden rounded-t-2xl">
                     ${discount ? `<div class="absolute top-4 left-4 bg-red-500 text-white font-black text-lg px-4 py-2 rounded-lg transform -rotate-12 shadow-lg">${discount}</div>` : ''}
-                    ${imageSrc ? `<img src="${imageSrc}" alt="${escapeHtml(d.title || 'deal')}" class="absolute inset-0 w-full h-full object-cover" />` : ''}
+                    ${imageSrc ? `<img src="${imageSrc}" alt="${escapeHtml(d.title || 'deal')}" class="absolute inset-0 w-full h-full object-cover" onerror="this.src='/api/placeholder/400/300'" />` : ''}
                     <div class="absolute inset-0 bg-yellow-400/40"></div>
                 </div>
                 <div class="p-6">
                     <div class="flex items-center justify-between mb-3">
                         <div class="flex items-center gap-3">
-                                <img src="${imageSrc}" alt="${escapeHtml(d.title || 'deal')}" class="w-12 h-12 rounded-md object-cover border border-gray-100 dark:border-gray-700" />
+                                <img src="${imageSrc}" alt="${escapeHtml(d.title || 'deal')}" class="w-12 h-12 rounded-md object-cover border border-gray-100 dark:border-gray-700" onerror="this.src='/api/placeholder/50/50'" />
                                 <div>
                                     <h3 class="text-xl font-bold text-gray-900 mb-0">${d.title}</h3>
                                     ${category}

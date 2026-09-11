@@ -26,7 +26,7 @@ router.put('/profile', auth, isVendor, updateVendorProfile);
 router.get('/dashboard-stats', auth, isVendor, getDashboardStats);
 
 // Deal management
-router.post('/deals', auth, isVendor, hasActiveSubscription, createDeal);
+router.post('/deals', auth, isVendor, createDeal);  // Allow all vendors to create deals
 router.get('/deals', auth, isVendor, getVendorDeals);
 router.put('/deals/:dealId', auth, isVendor, updateDeal);
 router.delete('/deals/:dealId', auth, isVendor, deleteDeal);

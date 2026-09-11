@@ -11,7 +11,14 @@ const app = express();
 // app.use(helmet({
 //   contentSecurityPolicy: false,
 // }));
-app.use(cors());
+
+// Enable CORS with flexible settings for external images
+app.use(cors({
+  origin: '*',
+  credentials: false,
+  optionsSuccessStatus: 200
+}));
+
 app.use(express.json());
 app.use(morgan('dev'));
 
@@ -21,6 +28,26 @@ app.use('/images', express.static(path.join(__dirname, '../../images')));
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
+});
+
+// Simple placeholder image endpoint for fallback
+app.get('/api/placeholder/:width/:height', (req, res) => {
+  const { width, height } = req.params;
+  const w = parseInt(width) || 400;
+  const h = parseInt(height) || 300;
+  
+  // Generate SVG placeholder
+  const svg = `
+    <svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">
+      <rect width="${w}" height="${h}" fill="#fbbf24"/>
+      <text x="${w/2}" y="${h/2}" font-family="Arial" font-size="24" fill="#666" text-anchor="middle" dominant-baseline="middle">
+        Deal Image ${w}x${h}
+      </text>
+    </svg>
+  `;
+  
+  res.set('Content-Type', 'image/svg+xml');
+  res.send(svg);
 });
 
 // Routes

@@ -19,6 +19,10 @@ const registerVendor = async (req, res) => {
       return res.status(400).json({ message: 'Store name and contact email are required' });
     }
 
+    // Update user role to 'vendor'
+    const User = require('../models/User');
+    await User.findByIdAndUpdate(userId, { role: 'vendor' }, { new: true });
+
     // Create vendor
     const vendor = new Vendor({
       user: userId,
@@ -102,24 +106,27 @@ const createDeal = async (req, res) => {
   try {
     const vendor = req.vendor;
 
+    // Removed subscription requirement for development - can add back later
     // Check if vendor has active subscription
-    if (vendor.subscriptionStatus !== 'active') {
-      return res.status(403).json({
-        message: 'Active subscription required to create deals',
-        subscriptionStatus: vendor.subscriptionStatus,
-      });
-    }
+    // if (vendor.subscriptionStatus !== 'active') {
+    //   return res.status(403).json({
+    //     message: 'Active subscription required to create deals',
+    //     subscriptionStatus: vendor.subscriptionStatus,
+    //   });
+    // }
 
-    // Check deal limit
-    const subscription = await Subscription.findById(vendor.currentSubscription);
-    if (subscription && subscription.maxDeals > 0) {
-      const dealsCount = await Deal.countDocuments({ vendor: vendor._id });
-      if (dealsCount >= subscription.maxDeals) {
-        return res.status(403).json({
-          message: `Deal limit reached. Your subscription allows ${subscription.maxDeals} deals`,
-          currentCount: dealsCount,
-          maxAllowed: subscription.maxDeals,
-        });
+    // Optional: Check deal limit if subscription exists
+    if (vendor.currentSubscription) {
+      const subscription = await Subscription.findById(vendor.currentSubscription);
+      if (subscription && subscription.maxDeals > 0) {
+        const dealsCount = await Deal.countDocuments({ vendor: vendor._id });
+        if (dealsCount >= subscription.maxDeals) {
+          return res.status(403).json({
+            message: `Deal limit reached. Your subscription allows ${subscription.maxDeals} deals`,
+            currentCount: dealsCount,
+            maxAllowed: subscription.maxDeals,
+          });
+        }
       }
     }
 
