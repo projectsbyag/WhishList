@@ -11,7 +11,7 @@ async function createAdmin() {
     console.log('Connected to MongoDB');
 
     const email = 'admin@wishlist.com';
-    const password = 'admin123'; // Change this!
+    const password = 'admin123'; 
     const name = 'Admin User';
 
     // Check if admin already exists
