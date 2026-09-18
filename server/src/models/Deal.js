@@ -1,38 +1,95 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/db');
 
-const dealSchema = new mongoose.Schema({
-  vendor: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Vendor',
-    required: false, // Optional to allow demo/sample deals
-    index: true,
+const Deal = sequelize.define('Deal', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true,
   },
-  title: { type: String, required: true },
-  description: { type: String },
-  category: { type: String, required: true, index: true },
-  // Accept either a numeric discount (percentage) or a string like '30% OFF'
-  discount: { type: mongoose.Schema.Types.Mixed, required: true },
-  originalPrice: { type: Number },
-  discountedPrice: { type: Number },
-  price: { type: Number }, // Legacy field for backward compatibility
-  image: { type: String },
-  imageUrl: { type: String }, // Preferred field name
-  dealLink: { type: String }, // Link to the original deal page
-  productLink: { type: String }, // Direct link to product page
-  available: { type: Number, default: 1 },
-  location: { type: String },
-  store: { type: String },
-  startDate: { type: Date },
-  expiryDate: { type: Date },
-  expiresAt: { type: Date }, // Legacy field for backward compatibility
-  isActive: { type: Boolean, default: true },
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now },
+  vendorId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,  // Optional for demo/sample deals
+    references: {
+      model: 'users',
+      key: 'id',
+    },
+  },
+  title: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  description: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
+  category: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  discount: {
+    type: DataTypes.STRING,  // Can be "30%" or "30% OFF"
+    allowNull: false,
+  },
+  originalPrice: {
+    type: DataTypes.FLOAT,
+    allowNull: true,
+  },
+  discountedPrice: {
+    type: DataTypes.FLOAT,
+    allowNull: true,
+  },
+  price: {
+    type: DataTypes.FLOAT,
+    allowNull: true,  // Legacy field
+  },
+  image: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  imageUrl: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  dealLink: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  productLink: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  available: {
+    type: DataTypes.INTEGER,
+    defaultValue: 1,
+  },
+  location: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  store: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  startDate: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+  expiryDate: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+  expiresAt: {
+    type: DataTypes.DATE,
+    allowNull: true,  // Legacy field
+  },
+  isActive: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true,
+  },
+}, {
+  timestamps: true,  // Adds createdAt and updatedAt automatically
+  tableName: 'deals',
 });
 
-dealSchema.pre('save', function(next) {
-  this.updatedAt = Date.now();
-  if (typeof next === 'function') next();
-});
-
-module.exports = mongoose.model('Deal', dealSchema);
+module.exports = Deal;

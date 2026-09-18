@@ -1,60 +1,50 @@
-const Vendor = require('../models/Vendor');
-const Subscription = require('../models/Subscription');
-const Transaction = require('../models/Transaction');
 const User = require('../models/User');
+const Deal = require('../models/Deal');
+const { Op } = require('sequelize');
 
 // Get all vendors (admin only)
 const getAllVendors = async (req, res) => {
   try {
-    const { page = 1, limit = 10, status, tier, search } = req.query;
+    const { page = 1, limit = 10, search } = req.query;
 
     const skip = (page - 1) * limit;
-    const filter = {};
-
-    if (status) {
-      filter.subscriptionStatus = status;
-    }
-
-    if (tier) {
-      filter.subscriptionTier = tier;
-    }
+    const filter = { role: 'vendor' };
 
     if (search) {
-      filter.$or = [
-        { storeName: { $regex: search, $options: 'i' } },
-        { contactEmail: { $regex: search, $options: 'i' } },
+      filter[Op.or] = [
+        { name: { [Op.like]: `%${search}%` } },
+        { email: { [Op.like]: `%${search}%` } }
       ];
     }
 
-    const vendors = await Vendor.find(filter)
-      .populate('user', 'email name')
-      .populate('currentSubscription', 'tier status currentPeriodEnd')
-      .sort({ createdAt: -1 })
-      .limit(parseInt(limit))
-      .skip(skip)
-      .lean();
+    const vendors = await User.findAll({
+      where: filter,
+      order: [['createdAt', 'DESC']],
+      limit: parseInt(limit),
+      offset: skip,
+    });
 
-    const total = await Vendor.countDocuments(filter);
+    // Count deals for each vendor
+    const vendorsWithStats = await Promise.all(
+      vendors.map(async (vendor) => {
+        const dealsCount = await Deal.count({ where: { vendorId: vendor.id } });
+        return {
+          id: vendor.id,
+          storeName: vendor.name || 'Vendor Store',
+          contactEmail: vendor.email,
+          category: 'general',  // Default category
+          subscriptionStatus: 'active',  // All vendors active in free tier
+          subscriptionTier: 'free',
+          dealsCount: dealsCount,
+          createdAt: vendor.createdAt,
+        };
+      })
+    );
+
+    const total = await User.count({ where: filter });
 
     res.json({
-      vendors: vendors.map((vendor) => ({
-        id: vendor._id,
-        storeName: vendor.storeName,
-        storeDescription: vendor.storeDescription,
-        category: vendor.category,
-        contactEmail: vendor.contactEmail,
-        contactPhone: vendor.contactPhone,
-        address: vendor.address,
-        website: vendor.website,
-        subscriptionStatus: vendor.subscriptionStatus,
-        subscriptionTier: vendor.subscriptionTier,
-        dealsCount: vendor.dealsCount,
-        isActive: vendor.isActive,
-        verificationStatus: vendor.verificationStatus,
-        user: vendor.user,
-        currentSubscription: vendor.currentSubscription,
-        createdAt: vendor.createdAt,
-      })),
+      vendors: vendorsWithStats,
       pagination: {
         total,
         page: parseInt(page),
@@ -72,63 +62,62 @@ const getVendorDetails = async (req, res) => {
   try {
     const { vendorId } = req.params;
 
-    const vendor = await Vendor.findById(vendorId)
-      .populate('user', 'email name createdAt')
-      .populate('currentSubscription')
-      .lean();
+    const vendor = await User.findByPk(vendorId);
 
     if (!vendor) {
       return res.status(404).json({ message: 'Vendor not found' });
     }
 
-    // Get recent transactions
-    const transactions = await Transaction.find({ vendor: vendorId })
-      .sort({ createdAt: -1 })
-      .limit(5)
-      .lean();
+    // Get vendor's deals (recent ones)
+    const deals = await Deal.findAll({
+      where: { vendorId },
+      order: [['createdAt', 'DESC']],
+      limit: 5,
+    });
+
+    // Get deal count
+    const dealsCount = await Deal.count({ where: { vendorId } });
 
     res.json({
-      vendor,
-      recentTransactions: transactions,
+      vendor: {
+        id: vendor.id,
+        storeName: vendor.name || 'Vendor Store',
+        contactEmail: vendor.email,
+        category: 'general',
+        contactPhone: '',
+        address: '',
+        website: '',
+        subscriptionStatus: 'active',
+        subscriptionTier: 'free',
+        dealsCount: dealsCount,
+        createdAt: vendor.createdAt,
+        verificationStatus: 'verified',
+      },
+      recentTransactions: [],
     });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 };
 
-// Deactivate vendor
+// Deactivate vendor (set role back to user)
 const deactivateVendor = async (req, res) => {
   try {
     const { vendorId } = req.params;
-    const { reason } = req.body;
 
-    const vendor = await Vendor.findById(vendorId);
+    const vendor = await User.findByPk(vendorId);
     if (!vendor) {
       return res.status(404).json({ message: 'Vendor not found' });
     }
 
-    vendor.isActive = false;
-    vendor.subscriptionStatus = 'suspended';
-    await vendor.save();
-
-    // Create transaction record for deactivation
-    const transaction = new Transaction({
-      vendor: vendorId,
-      type: 'manual',
-      amount: 0,
-      status: 'completed',
-      description: `Vendor account deactivated by admin. Reason: ${reason || 'No reason provided'}`,
-    });
-
-    await transaction.save();
+    await vendor.update({ role: 'user' });
 
     res.json({
       message: 'Vendor deactivated successfully',
       vendor: {
-        id: vendor._id,
-        storeName: vendor.storeName,
-        isActive: vendor.isActive,
-        subscriptionStatus: vendor.subscriptionStatus,
+        id: vendor.id,
+        name: vendor.name,
+        role: vendor.role,
       },
     });
   } catch (err) {
@@ -136,77 +125,54 @@ const deactivateVendor = async (req, res) => {
   }
 };
 
-// Activate vendor
+// Activate vendor (set role to vendor)
 const activateVendor = async (req, res) => {
   try {
     const { vendorId } = req.params;
 
-    const vendor = await Vendor.findById(vendorId);
+    const vendor = await User.findByPk(vendorId);
     if (!vendor) {
       return res.status(404).json({ message: 'Vendor not found' });
     }
 
-    // Check if vendor has active subscription
-    if (vendor.currentSubscription) {
-      const subscription = await Subscription.findById(vendor.currentSubscription);
-      if (subscription && subscription.status === 'active') {
-        vendor.isActive = true;
-        vendor.subscriptionStatus = 'active';
-        await vendor.save();
+    await vendor.update({ role: 'vendor' });
 
-        return res.json({
-          message: 'Vendor activated successfully',
-          vendor: {
-            id: vendor._id,
-            storeName: vendor.storeName,
-            isActive: vendor.isActive,
-            subscriptionStatus: vendor.subscriptionStatus,
-          },
-        });
-      }
-    }
-
-    return res.status(400).json({
-      message: 'Cannot activate vendor without active subscription',
+    res.json({
+      message: 'Vendor activated successfully',
+      vendor: {
+        id: vendor.id,
+        name: vendor.name,
+        role: vendor.role,
+      },
     });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 };
 
-// Delete vendor
+// Delete vendor and their deals
 const deleteVendor = async (req, res) => {
   try {
     const { vendorId } = req.params;
-    const { reason } = req.body;
 
-    const vendor = await Vendor.findById(vendorId);
+    const vendor = await User.findByPk(vendorId);
     if (!vendor) {
       return res.status(404).json({ message: 'Vendor not found' });
     }
 
-    // Store vendor info before deletion
-    const vendorInfo = {
-      id: vendor._id,
-      storeName: vendor.storeName,
-      email: vendor.contactEmail,
-    };
+    // Delete vendor's deals
+    await Deal.destroy({ where: { vendorId } });
 
-    // Delete vendor deals
-    await require('../models/Deal').deleteMany({ vendor: vendorId });
-
-    // Delete transactions
-    await Transaction.deleteMany({ vendor: vendorId });
-
-    // Delete subscriptions
-    await Subscription.deleteMany({ vendor: vendorId });
-
-    // Delete vendor
-    await Vendor.findByIdAndDelete(vendorId);
+    // Delete vendor user
+    await vendor.destroy();
 
     res.json({
-      message: 'Vendor and all associated data deleted successfully',
-      deletedVendor: vendorInfo,
+      message: 'Vendor and all associated deals deleted successfully',
+      deletedVendor: {
+        id: vendor.id,
+        name: vendor.name,
+        email: vendor.email,
+      },
     });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
@@ -217,37 +183,30 @@ const deleteVendor = async (req, res) => {
 const editVendor = async (req, res) => {
   try {
     const { vendorId } = req.params;
-    const {
-      storeName,
-      storeDescription,
-      category,
-      contactEmail,
-      contactPhone,
-      address,
-      website,
-      verificationStatus,
-    } = req.body;
+    const { storeName, contactEmail, email, category, contactPhone, address, website, verificationStatus } = req.body;
 
-    const vendor = await Vendor.findById(vendorId);
+    const vendor = await User.findByPk(vendorId);
     if (!vendor) {
       return res.status(404).json({ message: 'Vendor not found' });
     }
 
-    // Update fields
-    if (storeName) vendor.storeName = storeName;
-    if (storeDescription) vendor.storeDescription = storeDescription;
-    if (category) vendor.category = category;
-    if (contactEmail) vendor.contactEmail = contactEmail;
-    if (contactPhone) vendor.contactPhone = contactPhone;
-    if (address) vendor.address = address;
-    if (website) vendor.website = website;
-    if (verificationStatus) vendor.verificationStatus = verificationStatus;
+    const updates = {};
+    if (storeName) updates.name = storeName;
+    if (contactEmail) updates.email = contactEmail;
+    if (email) updates.email = email;
 
-    await vendor.save();
+    await vendor.update(updates);
 
     res.json({
       message: 'Vendor updated successfully',
-      vendor,
+      vendor: {
+        id: vendor.id,
+        storeName: vendor.name,
+        contactEmail: vendor.email,
+        category: 'general',
+        subscriptionStatus: 'active',
+        subscriptionTier: 'free',
+      },
     });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
@@ -257,46 +216,30 @@ const editVendor = async (req, res) => {
 // Get admin dashboard stats
 const getAdminStats = async (req, res) => {
   try {
-    const totalVendors = await Vendor.countDocuments();
-    const activeVendors = await Vendor.countDocuments({ subscriptionStatus: 'active' });
-    const inactiveVendors = await Vendor.countDocuments({ subscriptionStatus: 'inactive' });
-    const suspendedVendors = await Vendor.countDocuments({ subscriptionStatus: 'suspended' });
-
-    const basicVendors = await Vendor.countDocuments({ subscriptionTier: 'basic' });
-    const professionalVendors = await Vendor.countDocuments({ subscriptionTier: 'professional' });
-    const enterpriseVendors = await Vendor.countDocuments({ subscriptionTier: 'enterprise' });
-
-    // Get total revenue
-    const revenueData = await Transaction.aggregate([
-      { $match: { status: 'completed' } },
-      {
-        $group: {
-          _id: null,
-          totalRevenue: { $sum: '$amount' },
-          totalTransactions: { $sum: 1 },
-        },
-      },
-    ]);
-
-    const totalRevenue = revenueData[0]?.totalRevenue || 0;
-    const totalTransactions = revenueData[0]?.totalTransactions || 0;
+    const totalVendors = await User.count({ where: { role: 'vendor' } });
+    const totalUsers = await User.count({ where: { role: 'user' } });
+    const totalDeals = await Deal.count();
+    const activeDeals = await Deal.count({ where: { isActive: true } });
 
     res.json({
       vendors: {
         total: totalVendors,
-        active: activeVendors,
-        inactive: inactiveVendors,
-        suspended: suspendedVendors,
+        active: totalVendors,  // All vendors are considered active in SQLite version
+        inactive: 0,
+        suspended: 0,
       },
-      subscriptionTiers: {
-        basic: basicVendors,
-        professional: professionalVendors,
-        enterprise: enterpriseVendors,
+      users: {
+        total: totalUsers,
+        vendors: totalVendors,
+        admins: await User.count({ where: { role: 'admin' } }),
+      },
+      deals: {
+        total: totalDeals,
+        active: activeDeals,
+        inactive: totalDeals - activeDeals,
       },
       revenue: {
-        total: totalRevenue / 100, // Convert cents to dollars
-        transactions: totalTransactions,
-        averagePerTransaction: totalTransactions > 0 ? totalRevenue / totalTransactions / 100 : 0,
+        total: 0,  // No payment system in SQLite version
       },
     });
   } catch (err) {
@@ -304,7 +247,7 @@ const getAdminStats = async (req, res) => {
   }
 };
 
-// Get vendor transactions
+// Get vendor deals
 const getVendorTransactions = async (req, res) => {
   try {
     const { vendorId } = req.params;
@@ -312,17 +255,17 @@ const getVendorTransactions = async (req, res) => {
 
     const skip = (page - 1) * limit;
 
-    const transactions = await Transaction.find({ vendor: vendorId })
-      .populate('subscription', 'tier status')
-      .sort({ createdAt: -1 })
-      .limit(parseInt(limit))
-      .skip(skip)
-      .lean();
+    const deals = await Deal.findAll({
+      where: { vendorId },
+      order: [['createdAt', 'DESC']],
+      limit: parseInt(limit),
+      offset: skip,
+    });
 
-    const total = await Transaction.countDocuments({ vendor: vendorId });
+    const total = await Deal.count({ where: { vendorId } });
 
     res.json({
-      transactions,
+      transactions: deals,
       pagination: {
         total,
         page: parseInt(page),

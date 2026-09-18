@@ -1,4 +1,5 @@
 const express = require('express');
+const { Op } = require('sequelize');
 const router = express.Router();
 const Deal = require('../models/Deal');
 const auth = require('../middleware/auth');
@@ -6,12 +7,12 @@ const auth = require('../middleware/auth');
 // Public listing with optional category filter
 router.get('/', async (req, res) => {
   const { category, q } = req.query;
-  const filter = { isActive: true }; // Only show active deals
+  const filter = { isActive: true };
   if (category) filter.category = category;
-  if (q) filter.title = new RegExp(q, 'i');
+  if (q) filter.title = { [Op.like]: `%${q}%` };
 
-  // If no deals exist yet, insert a small set of sample deals so the frontend shows content.
-  const total = await Deal.countDocuments();
+  // If no deals exist yet, insert a small set of sample deals
+  const total = await Deal.count();
   if (total === 0) {
     const now = new Date();
     const samples = [
@@ -28,7 +29,7 @@ router.get('/', async (req, res) => {
         dealLink: 'https://example.com/breakfast-deal',
         store: 'Sunrise Cafe',
         isActive: true,
-        expiryDate: new Date(now.getTime() + 1000 * 60 * 60 * 24 * 3) // 3 days
+        expiryDate: new Date(now.getTime() + 1000 * 60 * 60 * 24 * 3)
       },
       {
         title: 'Grand Hotel - Weekend Stay',
@@ -43,7 +44,7 @@ router.get('/', async (req, res) => {
         dealLink: 'https://example.com/hotel-deal',
         store: 'Grand Hotel',
         isActive: true,
-        expiryDate: new Date(now.getTime() + 1000 * 60 * 60 * 24 * 7) // 7 days
+        expiryDate: new Date(now.getTime() + 1000 * 60 * 60 * 24 * 7)
       },
       {
         title: 'FlyAway - Discounted Flight',
@@ -58,7 +59,7 @@ router.get('/', async (req, res) => {
         dealLink: 'https://example.com/flight-deal',
         store: 'FlyAway Airlines',
         isActive: true,
-        expiryDate: new Date(now.getTime() + 1000 * 60 * 60 * 24 * 10) // 10 days
+        expiryDate: new Date(now.getTime() + 1000 * 60 * 60 * 24 * 10)
       },
       {
         title: 'TechHub - Electronics Sale',
@@ -92,18 +93,18 @@ router.get('/', async (req, res) => {
       }
     ];
     try {
-      await Deal.insertMany(samples);
+      await Deal.bulkCreate(samples);
       console.log('✅ Sample deals with images created');
     } catch (err) {
       console.error('Failed to insert sample deals', err);
     }
   }
 
-  const deals = await Deal.find(filter).limit(100);
+  const deals = await Deal.findAll({ where: filter, limit: 100 });
   res.json(deals);
 });
 
-// Admin create (simple - auth required; admin role expected)
+// Admin create
 router.post('/', auth, async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ message: 'Forbidden' });
   const d = await Deal.create(req.body);
@@ -113,7 +114,7 @@ router.post('/', auth, async (req, res) => {
 // Get single deal by ID
 router.get('/:id', async (req, res) => {
   try {
-    const deal = await Deal.findById(req.params.id);
+    const deal = await Deal.findByPk(req.params.id);
     if (!deal) return res.status(404).json({ message: 'Deal not found' });
     res.json(deal);
   } catch (err) {
@@ -125,8 +126,9 @@ router.get('/:id', async (req, res) => {
 router.put('/:id', auth, async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ message: 'Forbidden' });
   try {
-    const deal = await Deal.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+    const deal = await Deal.findByPk(req.params.id);
     if (!deal) return res.status(404).json({ message: 'Deal not found' });
+    await deal.update(req.body);
     res.json(deal);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
@@ -137,8 +139,9 @@ router.put('/:id', auth, async (req, res) => {
 router.delete('/:id', auth, async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ message: 'Forbidden' });
   try {
-    const deal = await Deal.findByIdAndDelete(req.params.id);
+    const deal = await Deal.findByPk(req.params.id);
     if (!deal) return res.status(404).json({ message: 'Deal not found' });
+    await deal.destroy();
     res.json({ message: 'Deal deleted successfully' });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });

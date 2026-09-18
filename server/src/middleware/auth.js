@@ -9,9 +9,18 @@ const auth = async (req, res, next) => {
   const token = authHeader.split(' ')[1];
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET || 'change-me');
-    const user = await User.findById(payload.id).select('-password');
+    const user = await User.findByPk(payload.id);
     if (!user) return res.status(401).json({ message: 'Unauthorized' });
-    req.user = user;
+    
+    // Create user object without password
+    req.user = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt
+    };
     next();
   } catch (err) {
     return res.status(401).json({ message: 'Invalid token' });

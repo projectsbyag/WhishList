@@ -1,40 +1,55 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/db');
 
-const wishlistItemSchema = new mongoose.Schema({
-    user: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-        required: true,
+const WishlistItem = sequelize.define('WishlistItem', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true,
+  },
+  userId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: 'users',
+      key: 'id',
     },
-    deal: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Deal',
-        required: false,
+  },
+  dealId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'deals',
+      key: 'id',
     },
-    description: String,
-    // cached fields for convenience
-    title: String,
-    image: String,
-    price: Number,
-    category: String,
-    note: String,
-    createdAt: {
-        type: Date,
-        default: Date.now,
-    },
-    updatedAt: {
-        type: Date,
-        default: Date.now,
-    },
+  },
+  description: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
+  title: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  image: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  price: {
+    type: DataTypes.FLOAT,
+    allowNull: true,
+  },
+  category: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  note: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
+}, {
+  timestamps: true,  // Adds createdAt and updatedAt automatically
+  tableName: 'wishlistItems',
 });
-
-wishlistItemSchema.index({ user: 1 });
-
-wishlistItemSchema.pre('save', function(next) {
-    this.updatedAt = Date.now();
-    if (typeof next === 'function') next();
-});
-
-const WishlistItem = mongoose.model('WishlistItem', wishlistItemSchema);
 
 module.exports = WishlistItem;

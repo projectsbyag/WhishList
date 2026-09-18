@@ -1,50 +1,23 @@
-const Vendor = require('../models/Vendor');
+const User = require('../models/User');
 const Deal = require('../models/Deal');
-const Subscription = require('../models/Subscription');
+const { Op } = require('sequelize');
 
 // Register as vendor
 const registerVendor = async (req, res) => {
   try {
-    const { storeName, storeDescription, category, contactEmail, contactPhone, address, website } = req.body;
     const userId = req.user.id;
 
-    // Check if vendor already exists
-    const existingVendor = await Vendor.findOne({ user: userId });
-    if (existingVendor) {
-      return res.status(400).json({ message: 'Vendor profile already exists for this user' });
-    }
-
-    // Validate required fields
-    if (!storeName || !contactEmail) {
-      return res.status(400).json({ message: 'Store name and contact email are required' });
-    }
-
     // Update user role to 'vendor'
-    const User = require('../models/User');
-    await User.findByIdAndUpdate(userId, { role: 'vendor' }, { new: true });
+    await User.update({ role: 'vendor' }, { where: { id: userId } });
 
-    // Create vendor
-    const vendor = new Vendor({
-      user: userId,
-      storeName,
-      storeDescription: storeDescription || '',
-      category: category || 'other',
-      contactEmail,
-      contactPhone: contactPhone || '',
-      address: address || '',
-      website: website || '',
-      subscriptionStatus: 'inactive',
-      isActive: false,
-    });
-
-    await vendor.save();
+    const user = await User.findByPk(userId);
 
     res.status(201).json({
       message: 'Vendor profile created successfully',
       vendor: {
-        id: vendor._id,
-        storeName: vendor.storeName,
-        subscriptionStatus: vendor.subscriptionStatus,
+        id: user.id,
+        email: user.email,
+        role: user.role,
       },
     });
   } catch (err) {
@@ -55,15 +28,12 @@ const registerVendor = async (req, res) => {
 // Get vendor profile
 const getVendorProfile = async (req, res) => {
   try {
-    const vendor = await Vendor.findOne({ user: req.user.id })
-      .populate('currentSubscription')
-      .lean();
-
-    if (!vendor) {
-      return res.status(404).json({ message: 'Vendor profile not found' });
+    const user = await User.findByPk(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
     }
 
-    res.json(vendor);
+    res.json(user);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -72,29 +42,18 @@ const getVendorProfile = async (req, res) => {
 // Update vendor profile
 const updateVendorProfile = async (req, res) => {
   try {
-    const { storeName, storeDescription, category, contactEmail, contactPhone, address, website, logo } =
-      req.body;
+    const { name, email } = req.body;
 
-    const vendor = await Vendor.findOne({ user: req.user.id });
-    if (!vendor) {
-      return res.status(404).json({ message: 'Vendor profile not found' });
-    }
+    await User.update(
+      { name, email },
+      { where: { id: req.user.id } }
+    );
 
-    // Update fields
-    if (storeName) vendor.storeName = storeName;
-    if (storeDescription) vendor.storeDescription = storeDescription;
-    if (category) vendor.category = category;
-    if (contactEmail) vendor.contactEmail = contactEmail;
-    if (contactPhone) vendor.contactPhone = contactPhone;
-    if (address) vendor.address = address;
-    if (website) vendor.website = website;
-    if (logo) vendor.logo = logo;
-
-    await vendor.save();
+    const user = await User.findByPk(req.user.id);
 
     res.json({
       message: 'Vendor profile updated successfully',
-      vendor,
+      user,
     });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
@@ -104,42 +63,17 @@ const updateVendorProfile = async (req, res) => {
 // Create deal (vendor only)
 const createDeal = async (req, res) => {
   try {
-    const vendor = req.vendor;
-
-    // Removed subscription requirement for development - can add back later
-    // Check if vendor has active subscription
-    // if (vendor.subscriptionStatus !== 'active') {
-    //   return res.status(403).json({
-    //     message: 'Active subscription required to create deals',
-    //     subscriptionStatus: vendor.subscriptionStatus,
-    //   });
-    // }
-
-    // Optional: Check deal limit if subscription exists
-    if (vendor.currentSubscription) {
-      const subscription = await Subscription.findById(vendor.currentSubscription);
-      if (subscription && subscription.maxDeals > 0) {
-        const dealsCount = await Deal.countDocuments({ vendor: vendor._id });
-        if (dealsCount >= subscription.maxDeals) {
-          return res.status(403).json({
-            message: `Deal limit reached. Your subscription allows ${subscription.maxDeals} deals`,
-            currentCount: dealsCount,
-            maxAllowed: subscription.maxDeals,
-          });
-        }
-      }
-    }
-
-    const { title, description, category, discount, originalPrice, discountedPrice, productLink, imageUrl, location } =
-      req.body;
+    const { title, description, category, discount, originalPrice, discountedPrice, productLink, imageUrl, location } = req.body;
 
     // Validate required fields
     if (!title || !category || !discount) {
       return res.status(400).json({ message: 'Title, category, and discount are required' });
     }
 
-    const deal = new Deal({
-      vendor: vendor._id,
+    const user = await User.findByPk(req.user.id);
+
+    const deal = await Deal.create({
+      vendorId: req.user.id,
       title,
       description,
       category,
@@ -149,16 +83,10 @@ const createDeal = async (req, res) => {
       productLink,
       imageUrl,
       location,
-      store: vendor.storeName,
+      store: user.name || 'Vendor Store',
       isActive: true,
       available: 1,
     });
-
-    await deal.save();
-
-    // Update vendor deals count
-    vendor.dealsCount = await Deal.countDocuments({ vendor: vendor._id });
-    await vendor.save();
 
     res.status(201).json({
       message: 'Deal created successfully',
@@ -172,23 +100,23 @@ const createDeal = async (req, res) => {
 // Get vendor's deals
 const getVendorDeals = async (req, res) => {
   try {
-    const vendor = req.vendor;
     const { page = 1, limit = 10, isActive } = req.query;
 
     const skip = (page - 1) * limit;
-    const filter = { vendor: vendor._id };
+    const filter = { vendorId: req.user.id };
 
     if (isActive !== undefined) {
       filter.isActive = isActive === 'true';
     }
 
-    const deals = await Deal.find(filter)
-      .sort({ createdAt: -1 })
-      .limit(parseInt(limit))
-      .skip(skip)
-      .lean();
+    const deals = await Deal.findAll({
+      where: filter,
+      order: [['createdAt', 'DESC']],
+      limit: parseInt(limit),
+      offset: skip,
+    });
 
-    const total = await Deal.countDocuments(filter);
+    const total = await Deal.count({ where: filter });
 
     res.json({
       deals,
@@ -207,29 +135,31 @@ const getVendorDeals = async (req, res) => {
 // Update deal
 const updateDeal = async (req, res) => {
   try {
-    const vendor = req.vendor;
     const { dealId } = req.params;
-    const { title, description, category, discount, originalPrice, discountedPrice, productLink, imageUrl, location, isActive } =
-      req.body;
+    const { title, description, category, discount, originalPrice, discountedPrice, productLink, imageUrl, location, isActive } = req.body;
 
-    const deal = await Deal.findOne({ _id: dealId, vendor: vendor._id });
+    const deal = await Deal.findOne({
+      where: { id: dealId, vendorId: req.user.id }
+    });
+
     if (!deal) {
       return res.status(404).json({ message: 'Deal not found' });
     }
 
     // Update fields
-    if (title) deal.title = title;
-    if (description) deal.description = description;
-    if (category) deal.category = category;
-    if (discount) deal.discount = discount;
-    if (originalPrice) deal.originalPrice = originalPrice;
-    if (discountedPrice) deal.discountedPrice = discountedPrice;
-    if (productLink) deal.productLink = productLink;
-    if (imageUrl) deal.imageUrl = imageUrl;
-    if (location) deal.location = location;
-    if (isActive !== undefined) deal.isActive = isActive;
+    const updates = {};
+    if (title) updates.title = title;
+    if (description) updates.description = description;
+    if (category) updates.category = category;
+    if (discount) updates.discount = discount;
+    if (originalPrice) updates.originalPrice = originalPrice;
+    if (discountedPrice) updates.discountedPrice = discountedPrice;
+    if (productLink) updates.productLink = productLink;
+    if (imageUrl) updates.imageUrl = imageUrl;
+    if (location) updates.location = location;
+    if (isActive !== undefined) updates.isActive = isActive;
 
-    await deal.save();
+    await deal.update(updates);
 
     res.json({
       message: 'Deal updated successfully',
@@ -243,17 +173,17 @@ const updateDeal = async (req, res) => {
 // Delete deal
 const deleteDeal = async (req, res) => {
   try {
-    const vendor = req.vendor;
     const { dealId } = req.params;
 
-    const deal = await Deal.findOneAndDelete({ _id: dealId, vendor: vendor._id });
+    const deal = await Deal.findOne({
+      where: { id: dealId, vendorId: req.user.id }
+    });
+
     if (!deal) {
       return res.status(404).json({ message: 'Deal not found' });
     }
 
-    // Update vendor deals count
-    vendor.dealsCount = await Deal.countDocuments({ vendor: vendor._id });
-    await vendor.save();
+    await deal.destroy();
 
     res.json({ message: 'Deal deleted successfully' });
   } catch (err) {
@@ -264,34 +194,19 @@ const deleteDeal = async (req, res) => {
 // Get vendor dashboard stats
 const getDashboardStats = async (req, res) => {
   try {
-    const vendor = req.vendor;
+    const totalDeals = await Deal.count({ where: { vendorId: req.user.id } });
+    const activeDeals = await Deal.count({ where: { vendorId: req.user.id, isActive: true } });
+    const inactiveDeals = await Deal.count({ where: { vendorId: req.user.id, isActive: false } });
 
-    const totalDeals = await Deal.countDocuments({ vendor: vendor._id });
-    const activeDeals = await Deal.countDocuments({ vendor: vendor._id, isActive: true });
-    const inactiveDeals = await Deal.countDocuments({ vendor: vendor._id, isActive: false });
-
-    const subscription = await Subscription.findById(vendor.currentSubscription).lean();
+    const user = await User.findByPk(req.user.id);
 
     res.json({
-      storeName: vendor.storeName,
-      subscriptionStatus: vendor.subscriptionStatus,
-      subscriptionTier: vendor.subscriptionTier,
+      storeName: user.name || 'Vendor Store',
       stats: {
         totalDeals,
         activeDeals,
         inactiveDeals,
-        maxDeals: subscription?.maxDeals || 'unlimited',
-        totalSavings: vendor.totalSavings || 0,
       },
-      subscription: subscription
-        ? {
-            tier: subscription.tier,
-            status: subscription.status,
-            currentPeriodEnd: subscription.currentPeriodEnd,
-            maxDeals: subscription.maxDeals,
-            features: subscription.features,
-          }
-        : null,
     });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });

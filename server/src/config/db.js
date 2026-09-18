@@ -1,30 +1,29 @@
-const mongoose = require('mongoose');
+const { Sequelize } = require('sequelize');
+const path = require('path');
+
+// Create SQLite database instance
+const sequelize = new Sequelize({
+  dialect: 'sqlite',
+  storage: path.join(__dirname, '../../wishlist.db'),  // Database file location
+  logging: false,  // Disable SQL logging (set to console.log to debug)
+});
 
 const connectDB = async () => {
-  // Use MongoDB Atlas cloud database (from .env)
-  const uri = process.env.MONGODB_URI;
-  
-  if (!uri) {
-    throw new Error('MONGODB_URI not set in .env file. Please configure MongoDB Atlas connection string.');
-  }
-  
   try {
-    console.log('Connecting to MongoDB Atlas...');
-    await mongoose.connect(uri, {
-      serverSelectionTimeoutMS: 5000,
-      connectTimeoutMS: 10000,
-      socketTimeoutMS: 45000,
-    });
-    console.log('✅ MongoDB Atlas connected successfully');
+    console.log('Connecting to SQLite database...');
+    await sequelize.authenticate();
+    console.log('✅ SQLite database connected successfully');
+    
+    // Load models
+    require('../models/index');
+    
+    // Sync models with database (creates tables if they don't exist)
+    await sequelize.sync({ alter: false });
+    console.log('✅ Database tables synced');
   } catch (err) {
-    console.error('❌ MongoDB connection error:', err.message);
-    console.error('\nTroubleshooting:');
-    console.error('1. Check MONGODB_URI in .env file');
-    console.error('2. Verify MongoDB Atlas credentials');
-    console.error('3. Check network connection');
-    console.error('4. Ensure IP whitelist includes your IP');
+    console.error('❌ Database connection error:', err.message);
     throw err;
   }
 };
 
-module.exports = connectDB;
+module.exports = { sequelize, connectDB };
