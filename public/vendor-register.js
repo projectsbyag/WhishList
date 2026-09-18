@@ -1,14 +1,7 @@
 const API_BASE_URL = 'http://localhost:3000/api';
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Check if user is logged in
-  const token = localStorage.getItem('token');
   const userRole = localStorage.getItem('userRole');
-
-  if (!token) {
-    window.location.href = 'login.html';
-    return;
-  }
 
   // If user is already a vendor, redirect to dashboard
   if (userRole === 'vendor') {
@@ -24,6 +17,11 @@ async function handleRegistration(e) {
 
   try {
     const token = localStorage.getItem('token');
+    if (!token) {
+      window.location.href = 'login.html?returnTo=vendor-register.html';
+      return;
+    }
+
     const formData = {
       storeName: document.getElementById('storeName').value,
       storeDescription: document.getElementById('storeDescription').value,
