@@ -102,13 +102,13 @@ async function subscribeToPlan(tier) {
 
     const data = await response.json();
 
-    if (!data.status) {
+    if (data.status !== true || !data.data) {
       throw new Error(data.message || 'Payment initialization failed');
     }
 
     // Open Paystack payment modal
     const handler = PaystackPop.setup({
-      key: data.data.access_code ? data.data.access_code : 'pk_test_YOUR_PAYSTACK_PUBLIC_KEY_HERE', // Will be set from server
+      key: data.data.publicKey,
       email: data.data.email,
       amount: data.data.amount,
       ref: data.data.reference,
@@ -147,7 +147,7 @@ async function verifyPayment(reference) {
 
     const data = await response.json();
 
-    if (!data.status) {
+    if (data.status !== true) {
       throw new Error(data.message || 'Payment verification failed');
     }
 

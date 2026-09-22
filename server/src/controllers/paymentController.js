@@ -1,5 +1,4 @@
-// Payment controller - simplified for SQLite (subscriptions removed)
-// This can be expanded later with a proper payment gateway
+const paystack = require('../config/paystack');
 
 const SUBSCRIPTION_TIERS = {
   basic: {
@@ -50,27 +49,66 @@ const getPricingPlans = async (req, res) => {
   }
 };
 
-// Initialize payment - stub
 const initializePayment = async (req, res) => {
   try {
+    const { tier, email } = req.body;
+    const plan = SUBSCRIPTION_TIERS[tier];
+
+    if (!plan || !email) {
+      return res.status(400).json({ message: 'A valid tier and email are required' });
+    }
+
+    const { data } = await paystack.post('/transaction/initialize', {
+      email,
+      amount: plan.price * 100,
+      currency: 'NGN',
+      metadata: { userId: req.user.id, tier },
+    });
+
+    if (!data.status || !data.data) {
+      return res.status(502).json({ message: data.message || 'Payment initialization failed' });
+    }
+
     res.json({
-      message: 'Payment feature coming soon',
-      status: 'coming_soon',
+      status: true,
+      data: {
+        publicKey: process.env.PAYSTACK_PUBLIC_KEY,
+        access_code: data.data.access_code,
+        authorization_url: data.data.authorization_url,
+        reference: data.data.reference,
+        email,
+        amount: plan.price * 100,
+      },
     });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err.message });
+    const message = err.response?.data?.message || err.message;
+    if (message.toLowerCase().includes('integration has been deactivated')) {
+      return res.status(503).json({
+        message: 'Paystack integration is deactivated. Replace PAYSTACK_SECRET_KEY and PAYSTACK_PUBLIC_KEY in server/.env, then restart the server.',
+      });
+    }
+    res.status(502).json({ message: `Payment initialization failed: ${message}` });
   }
 };
 
-// Verify payment - stub
 const verifyPayment = async (req, res) => {
   try {
-    res.json({
-      message: 'Payment feature coming soon',
-      status: 'coming_soon',
-    });
+    const { reference } = req.body;
+    if (!reference) {
+      return res.status(400).json({ message: 'Payment reference is required' });
+    }
+
+    const { data } = await paystack.get(`/transaction/verify/${encodeURIComponent(reference)}`);
+    const paid = data.status && data.data?.status === 'success';
+
+    if (!paid) {
+      return res.status(400).json({ message: data.data?.gateway_response || 'Payment was not successful' });
+    }
+
+    res.json({ status: true, message: 'Payment verified successfully', data: data.data });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err.message });
+    const message = err.response?.data?.message || err.message;
+    res.status(502).json({ message: `Payment verification failed: ${message}` });
   }
 };
 
