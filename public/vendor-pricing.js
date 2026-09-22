@@ -151,10 +151,22 @@ async function verifyPayment(reference) {
       throw new Error(data.message || 'Payment verification failed');
     }
 
-    showToast('Payment successful! Redirecting to dashboard...', 'success');
+    // Store subscription details in sessionStorage
+    const subscriptionDetails = {
+      planName: data.plan?.name || 'Premium',
+      amount: data.plan?.price || 0,
+      nextBilling: data.plan?.nextBilling || null,
+      tier: data.plan?.tier || 'professional',
+    };
+    
+    sessionStorage.setItem('subscriptionDetails', JSON.stringify(subscriptionDetails));
+
+    showToast('Payment successful! Redirecting...', 'success');
+    
+    // Redirect to success page first
     setTimeout(() => {
-      window.location.href = 'vendor-dashboard.html';
-    }, 2000);
+      window.location.href = 'subscription-success.html';
+    }, 1500);
   } catch (err) {
     console.error('Error verifying payment:', err);
     showToast(err.message || 'Failed to verify payment', 'error');

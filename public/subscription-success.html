@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subscription Successful - Wishlist</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        
+        .checkmark {
+            animation: scaleIn 0.8s ease-in-out;
+        }
+        
+        @keyframes scaleIn {
+            0% {
+                transform: scale(0);
+                opacity: 0;
+            }
+            50% {
+                transform: scale(1.1);
+            }
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+        
+        .confetti {
+            position: fixed;
+            width: 10px;
+            height: 10px;
+            background-color: #3b82f6;
+            animation: fall 3s linear forwards;
+        }
+        
+        @keyframes fall {
+            to {
+                transform: translateY(100vh) rotate(360deg);
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-green-50 to-blue-50 min-h-screen flex items-center justify-center">
+    <!-- Header -->
+    <header class="fixed top-0 left-0 right-0 bg-white border-b border-gray-200 shadow-sm z-10">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <a href="index.html" class="flex items-center space-x-2">
+                <img src="../images/logo.png" alt="Wishlist Logo" class="w-10 h-10 object-contain">
+                <span class="text-xl font-bold text-gray-900">Wishlist</span>
+            </a>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="pt-20 px-4 flex items-center justify-center min-h-screen">
+        <div class="text-center max-w-2xl">
+            <!-- Success Animation -->
+            <div class="mb-8">
+                <div class="checkmark flex justify-center mb-6">
+                    <svg class="w-24 h-24 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Success Message -->
+            <h1 class="text-4xl font-bold text-gray-900 mb-4">Payment Successful!</h1>
+            <p class="text-xl text-gray-600 mb-8">Your subscription has been activated. You're all set to start creating amazing deals!</p>
+
+            <!-- Subscription Details -->
+            <div class="bg-white rounded-lg shadow-lg p-8 mb-8">
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div class="text-left">
+                        <p class="text-sm text-gray-500 mb-2">Subscription Plan</p>
+                        <p class="text-2xl font-bold text-gray-900" id="planName">-</p>
+                    </div>
+                    <div class="text-left">
+                        <p class="text-sm text-gray-500 mb-2">Amount Paid</p>
+                        <p class="text-2xl font-bold text-green-600" id="amountPaid">-</p>
+                    </div>
+                    <div class="text-left">
+                        <p class="text-sm text-gray-500 mb-2">Status</p>
+                        <p class="text-lg font-semibold text-green-600">✓ Active</p>
+                    </div>
+                    <div class="text-left">
+                        <p class="text-sm text-gray-500 mb-2">Next Billing</p>
+                        <p class="text-lg font-semibold text-gray-900" id="nextBilling">-</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- What's Included -->
+            <div class="bg-blue-50 rounded-lg p-8 mb-8">
+                <h2 class="text-2xl font-bold text-gray-900 mb-6">What You Get Now</h2>
+                <ul class="space-y-4 text-left">
+                    <li class="flex items-start">
+                        <svg class="w-6 h-6 text-green-500 mr-3 flex-shrink-0 mt-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                        </svg>
+                        <div>
+                            <p class="font-semibold text-gray-900">Unlimited Deal Creation</p>
+                            <p class="text-sm text-gray-600">Post as many deals as you want</p>
+                        </div>
+                    </li>
+                    <li class="flex items-start">
+                        <svg class="w-6 h-6 text-green-500 mr-3 flex-shrink-0 mt-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                        </svg>
+                        <div>
+                            <p class="font-semibold text-gray-900">Priority Support</p>
+                            <p class="text-sm text-gray-600">Get help when you need it</p>
+                        </div>
+                    </li>
+                    <li class="flex items-start">
+                        <svg class="w-6 h-6 text-green-500 mr-3 flex-shrink-0 mt-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                        </svg>
+                        <div>
+                            <p class="font-semibold text-gray-900">Advanced Analytics</p>
+                            <p class="text-sm text-gray-600">Track deal performance and customer engagement</p>
+                        </div>
+                    </li>
+                    <li class="flex items-start">
+                        <svg class="w-6 h-6 text-green-500 mr-3 flex-shrink-0 mt-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                        </svg>
+                        <div>
+                            <p class="font-semibold text-gray-900">Custom Branding</p>
+                            <p class="text-sm text-gray-600">Customize your vendor profile and deals</p>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                <button onclick="goToDashboard()" class="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors">
+                    Go to Dashboard
+                </button>
+                <button onclick="goHome()" class="px-8 py-3 border-2 border-gray-300 hover:border-gray-400 text-gray-900 font-semibold rounded-lg transition-colors">
+                    Back to Home
+                </button>
+            </div>
+
+            <!-- Auto-redirect notice -->
+            <p class="text-gray-600 text-sm mt-8">
+                Redirecting to dashboard in <span id="countdown">5</span> seconds...
+            </p>
+        </div>
+    </main>
+
+    <script>
+        // Parse subscription details from URL params or sessionStorage
+        document.addEventListener('DOMContentLoaded', () => {
+            // Try to get subscription details from sessionStorage
+            const subscriptionDetails = JSON.parse(sessionStorage.getItem('subscriptionDetails') || '{}');
+            
+            if (subscriptionDetails.planName) {
+                document.getElementById('planName').textContent = subscriptionDetails.planName;
+            }
+            
+            if (subscriptionDetails.amount) {
+                document.getElementById('amountPaid').textContent = `₦${subscriptionDetails.amount.toLocaleString()}`;
+            }
+            
+            if (subscriptionDetails.nextBilling) {
+                document.getElementById('nextBilling').textContent = subscriptionDetails.nextBilling;
+            } else {
+                // Calculate next billing date (30 days from now)
+                const nextDate = new Date();
+                nextDate.setDate(nextDate.getDate() + 30);
+                document.getElementById('nextBilling').textContent = nextDate.toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric'
+                });
+            }
+
+            // Create confetti effect
+            createConfetti();
+
+            // Start countdown
+            startCountdown();
+
+            // Clear sessionStorage
+            sessionStorage.removeItem('subscriptionDetails');
+        });
+
+        function createConfetti() {
+            for (let i = 0; i < 50; i++) {
+                setTimeout(() => {
+                    const confetti = document.createElement('div');
+                    confetti.className = 'confetti';
+                    confetti.style.left = Math.random() * 100 + '%';
+                    confetti.style.backgroundColor = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'][Math.floor(Math.random() * 5)];
+                    document.body.appendChild(confetti);
+                    
+                    setTimeout(() => confetti.remove(), 3000);
+                }, i * 30);
+            }
+        }
+
+        function startCountdown() {
+            let count = 5;
+            const interval = setInterval(() => {
+                count--;
+                document.getElementById('countdown').textContent = count;
+                if (count <= 0) {
+                    clearInterval(interval);
+                    goToDashboard();
+                }
+            }, 1000);
+        }
+
+        function goToDashboard() {
+            window.location.href = 'vendor-dashboard.html';
+        }
+
+        function goHome() {
+            window.location.href = 'index.html';
+        }
+    </script>
+</body>
+</html>
