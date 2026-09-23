@@ -1,8 +1,19 @@
 const API_BASE_URL = 'http://localhost:3000/api';
 
+function getJwtRole() {
+  const token = localStorage.getItem('token');
+  if (!token) return 'guest';
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.role || 'user';
+  } catch (err) {
+    return 'user';
+  }
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   const token = localStorage.getItem('token');
-  const userRole = localStorage.getItem('userRole');
+  const userRole = getJwtRole();
 
   if (!token || userRole !== 'vendor') {
     window.location.href = 'login.html';
@@ -155,7 +166,7 @@ async function verifyPayment(reference) {
     const subscriptionDetails = {
       planName: data.plan?.name || 'Premium',
       amount: data.plan?.price || 0,
-      nextBilling: data.plan?.nextBilling || null,
+      nextBilling: data.plan?.nextBilling ? new Date(data.plan.nextBilling).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : null,
       tier: data.plan?.tier || 'professional',
     };
     
@@ -175,6 +186,7 @@ async function verifyPayment(reference) {
 
 function logout() {
   localStorage.removeItem('token');
+  localStorage.removeItem('userEmail');
   localStorage.removeItem('userRole');
   localStorage.removeItem('vendorId');
   window.location.href = 'login.html';

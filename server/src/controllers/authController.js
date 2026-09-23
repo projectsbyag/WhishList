@@ -6,6 +6,8 @@ const signToken = (user) => {
   return jwt.sign({ id: user.id, email: user.email, role: user.role }, process.env.JWT_SECRET || 'change-me', { expiresIn: '7d' });
 };
 
+module.exports.signToken = signToken;
+
 exports.register = async (req, res) => {
   const { name, email, password } = req.body;
   if (!email || !password) return res.status(400).json({ message: 'Email and password required' });

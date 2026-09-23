@@ -74,6 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const expiryText = formatDate(expires);
             const isExpired = expires ? (new Date(expires).getTime() < Date.now()) : false;
             const status = isExpired ? `<span class="text-xs px-2 py-1 rounded-full bg-red-100 text-red-700">Expired</span>` : `<span class="text-xs px-2 py-1 rounded-full bg-green-100 text-green-700">Active</span>`;
+            const sourceLink = d.dealLink || d.productLink;
             card.innerHTML = `
                 <div class="bg-yellow-400 p-6 relative h-40 overflow-hidden rounded-t-2xl">
                     ${discount ? `<div class="absolute top-4 left-4 bg-red-500 text-white font-black text-lg px-4 py-2 rounded-lg transform -rotate-12 shadow-lg">${discount}</div>` : ''}
@@ -99,11 +100,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="text-sm text-gray-700">${renderStars(d.rating || 0)} <span class="ml-2 text-xs">${(d.rating || 0).toFixed(1)}</span></div>
                     </div>
                     <div class="text-sm text-gray-600 dark:text-gray-300 mb-2">Expires: <strong>${expiryText}</strong></div>
-                    ${d.dealLink ? `<div class="text-sm text-gray-600 dark:text-gray-300 mb-4">Source: <a href="${escapeHtml(d.dealLink)}" target="_blank" rel="noopener noreferrer" class="text-yellow-600 dark:text-yellow-400 hover:underline inline-flex items-center gap-1 font-semibold">Deal link <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg></a></div>` : ''}
                     <div class="text-4xl font-black text-gray-900 mb-4 countdown-timer" data-end-time="${expires || ''}">--:--:--</div>
                     <div class="flex gap-3">
-                        <button class="claim-button flex-1 bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold py-3 px-6 rounded-xl transition-colors uppercase tracking-wide" data-deal-id="${d._id}">Claim</button>
-                        ${d.dealLink ? `<a href="${escapeHtml(d.dealLink)}" target="_blank" rel="noopener noreferrer" class="buy-button bg-gray-900 text-white font-bold py-3 px-4 rounded-xl hover:bg-gray-800 transition-colors flex items-center justify-center">Buy</a>` : `<button class="buy-button bg-gray-900 text-white font-bold py-3 px-4 rounded-xl hover:bg-gray-800 transition-colors">Buy</button>`}
+                        ${sourceLink ? `<a href="${escapeHtml(sourceLink)}" target="_blank" rel="noopener noreferrer" class="claim-link flex-1 bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold py-3 px-6 rounded-xl transition-colors uppercase tracking-wide text-center">Claim Deal</a>` : `<button class="claim-button flex-1 bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold py-3 px-6 rounded-xl transition-colors uppercase tracking-wide" data-deal-id="${d._id}">Claim</button>`}
                         ${checkIfAdmin() ? `<a href="admin.html#edit-${d._id}" class="ml-2 inline-flex items-center px-3 py-2 border border-gray-200 rounded-lg text-sm text-blue-600 hover:bg-blue-50">Edit</a>` : ''}
                     </div>
                 </div>
@@ -191,17 +190,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function attachDealHandlers() {
+        // Claim buttons only exist as a fallback when a deal has no source link
         const claimButtons = document.querySelectorAll('.claim-button');
         claimButtons.forEach(btn => {
             btn.removeEventListener('click', onClaimClick);
             btn.addEventListener('click', onClaimClick);
-        });
-
-        // Buy buttons - open a simple checkout placeholder
-        const buyButtons = document.querySelectorAll('.buy-button');
-        buyButtons.forEach(b => {
-            b.removeEventListener('click', onBuyClick);
-            b.addEventListener('click', onBuyClick);
         });
     }
 
@@ -240,13 +233,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (half) out += '☆';
         while (out.length < 5) out += '☆';
         return `<span class="text-yellow-400">${out}</span>`;
-    }
-
-    function onBuyClick(e) {
-        if (e.currentTarget.tagName.toLowerCase() === 'a') {
-            return; // Let the browser handle the hyperlink normally
-        }
-        showToast('Checkout is a placeholder — integrate payments to complete.', 'info');
     }
 
     // Professional Toast Notification System

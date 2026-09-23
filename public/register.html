@@ -141,6 +141,16 @@
     </main>
 
     <script>
+        // Preserve the returnTo target on the "Sign in" link for existing users
+        document.addEventListener('DOMContentLoaded', () => {
+            const returnTo = new URLSearchParams(window.location.search).get('returnTo');
+            const safeReturnTo = returnTo && !returnTo.includes('://') && !returnTo.startsWith('//');
+            if (safeReturnTo) {
+                const signInLink = document.querySelector('a[href="login.html"]');
+                if (signInLink) signInLink.href = 'login.html?returnTo=' + encodeURIComponent(returnTo);
+            }
+        });
+
         document.getElementById('registerForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = e.target.querySelector('button[type="submit"]');
@@ -167,13 +177,17 @@
                 const data = await res.json();
                 localStorage.setItem('token', data.token);
                 localStorage.setItem('userEmail', data.user.email);
-                localStorage.setItem('userRole', data.user.role);  // ← ADD THIS LINE
+                localStorage.removeItem('userRole');  // Role is decoded from the JWT token
                 
                 // Show success briefly
                 btn.innerHTML = '<svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>';
                 
                 setTimeout(() => {
-                    window.location.href = 'index.html';
+                    const returnTo = new URLSearchParams(window.location.search).get('returnTo');
+                    const safeReturnTo = returnTo && !returnTo.includes('://') && !returnTo.startsWith('//')
+                        ? returnTo
+                        : 'index.html';
+                    window.location.href = safeReturnTo;
                 }, 500);
             } catch (err) {
                 console.error('Register error', err);

@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
-const { isVendor, hasActiveSubscription } = require('../middleware/vendorAuth');
+const { isVendor } = require('../middleware/vendorAuth');
 const {
   registerVendor,
   getVendorProfile,

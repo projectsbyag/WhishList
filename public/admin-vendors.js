@@ -13,13 +13,25 @@ function getAuthToken() {
   return token;
 }
 
+// Decode the role from the JWT instead of relying on localStorage
+function getJwtRole() {
+  const token = localStorage.getItem('token');
+  if (!token) return 'guest';
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.role || 'user';
+  } catch (err) {
+    return 'user';
+  }
+}
+
 // Initialize page
 document.addEventListener('DOMContentLoaded', async () => {
   const token = getAuthToken();
   if (!token) return;
 
   // Check if user is admin
-  const userRole = localStorage.getItem('userRole');
+  const userRole = getJwtRole();
   if (userRole !== 'admin') {
     window.location.href = 'index.html';
     return;
@@ -393,7 +405,9 @@ async function deleteVendor(vendorId) {
 // Logout
 function logout() {
   localStorage.removeItem('token');
+  localStorage.removeItem('userEmail');
   localStorage.removeItem('userRole');
+  localStorage.removeItem('vendorId');
   window.location.href = 'login.html';
 }
 

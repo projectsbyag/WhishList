@@ -1,4 +1,7 @@
 const paystack = require('../config/paystack');
+const User = require('../models/User');
+const Subscription = require('../models/Subscription');
+const { Op } = require('sequelize');
 
 const SUBSCRIPTION_TIERS = {
   basic: {
@@ -105,45 +108,146 @@ const verifyPayment = async (req, res) => {
       return res.status(400).json({ message: data.data?.gateway_response || 'Payment was not successful' });
     }
 
-    res.json({ status: true, message: 'Payment verified successfully', data: data.data });
+    // Determine which tier was paid for (from the metadata captured at initialization)
+    let tier = 'basic';
+    const metadata = data.data?.metadata;
+    if (metadata) {
+      const raw = typeof metadata === 'string' ? JSON.parse(metadata) : metadata;
+      if (raw && raw.tier) tier = raw.tier;
+    }
+
+    const plan = SUBSCRIPTION_TIERS[tier];
+    if (!plan) {
+      return res.status(400).json({ message: 'Unknown subscription tier' });
+    }
+
+    const now = new Date();
+    const periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+    // Ensure the paying user is a vendor
+    await User.update({ role: 'vendor' }, { where: { id: req.user.id } });
+
+    // Record the paid subscription
+    let subscription = await Subscription.findOne({ where: { paystackReference: reference } });
+
+    if (!subscription) {
+      subscription = await Subscription.create({
+        userId: req.user.id,
+        tier,
+        status: 'active',
+        currentPeriodStart: now,
+        currentPeriodEnd: periodEnd,
+        maxDeals: plan.maxDeals,
+        features: plan.features,
+        paystackReference: reference,
+      });
+    } else {
+      await subscription.update({
+        userId: req.user.id,
+        tier,
+        status: 'active',
+        currentPeriodStart: now,
+        currentPeriodEnd: periodEnd,
+        maxDeals: plan.maxDeals,
+        features: plan.features,
+      });
+    }
+
+    res.json({
+      status: true,
+      message: 'Payment verified and subscription activated',
+      data: data.data,
+      subscription: subscription.toJSON(),
+      plan: {
+        tier,
+        name: plan.name,
+        price: plan.price,
+        maxDeals: plan.maxDeals,
+        nextBilling: periodEnd.toISOString(),
+      },
+    });
   } catch (err) {
     const message = err.response?.data?.message || err.message;
     res.status(502).json({ message: `Payment verification failed: ${message}` });
   }
 };
 
-// Get subscription status - stub
+// Get subscription status
 const getSubscriptionStatus = async (req, res) => {
   try {
+    const subscription = await Subscription.findOne({
+      where: {
+        userId: req.user.id,
+        status: 'active',
+        currentPeriodEnd: { [Op.gt]: new Date() },
+      },
+      order: [['currentPeriodEnd', 'DESC']],
+    });
+
+    if (!subscription) {
+      return res.json({
+        hasSubscription: false,
+        subscriptionStatus: 'inactive',
+        tier: 'basic',
+        subscription: null,
+      });
+    }
+
     res.json({
-      status: 'free',
-      tier: 'basic',
-      message: 'Free tier - unlimited deals',
+      hasSubscription: true,
+      subscriptionStatus: 'active',
+      tier: subscription.tier,
+      subscription: subscription.toJSON(),
     });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 };
 
-// Cancel subscription - stub
+// Cancel subscription
 const cancelSubscription = async (req, res) => {
   try {
+    const subscription = await Subscription.findOne({
+      where: { userId: req.user.id, status: 'active' },
+      order: [['currentPeriodEnd', 'DESC']],
+    });
+
+    if (!subscription) {
+      return res.status(404).json({ message: 'No active subscription found' });
+    }
+
+    await subscription.update({ status: 'cancelled', currentPeriodEnd: new Date() });
+
     res.json({
-      message: 'Payment feature coming soon',
-      status: 'coming_soon',
+      message: 'Subscription cancelled successfully',
+      status: 'cancelled',
     });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 };
 
-// Get transaction history - stub
+// Get transaction history
 const getTransactionHistory = async (req, res) => {
   try {
-    res.json({
-      transactions: [],
-      message: 'No transaction history',
+    const subscriptions = await Subscription.findAll({
+      where: { userId: req.user.id },
+      order: [['createdAt', 'DESC']],
     });
+
+    const transactions = subscriptions.map((sub) => ({
+      id: sub.id,
+      reference: sub.paystackReference,
+      type: 'subscription',
+      status: sub.status,
+      tier: sub.tier,
+      amount: (SUBSCRIPTION_TIERS[sub.tier]?.price || 0),
+      currency: 'NGN',
+      createdAt: sub.createdAt,
+      currentPeriodEnd: sub.currentPeriodEnd,
+    }));
+
+    res.json({ transactions });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }

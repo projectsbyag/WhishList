@@ -1,10 +1,19 @@
 const API_BASE_URL = 'http://localhost:3000/api';
 
-document.addEventListener('DOMContentLoaded', () => {
-  const userRole = localStorage.getItem('userRole');
+function getJwtRole() {
+  const token = localStorage.getItem('token');
+  if (!token) return 'guest';
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.role || 'user';
+  } catch (err) {
+    return 'user';
+  }
+}
 
+document.addEventListener('DOMContentLoaded', () => {
   // If user is already a vendor, redirect to dashboard
-  if (userRole === 'vendor') {
+  if (getJwtRole() === 'vendor') {
     window.location.href = 'vendor-dashboard.html';
     return;
   }
@@ -18,7 +27,7 @@ async function handleRegistration(e) {
   try {
     const token = localStorage.getItem('token');
     if (!token) {
-      window.location.href = 'login.html?returnTo=vendor-register.html';
+      window.location.href = 'register.html?returnTo=vendor-register.html';
       return;
     }
 
@@ -48,10 +57,12 @@ async function handleRegistration(e) {
 
     const data = await response.json();
     showToast('Vendor account created! Redirecting to pricing plans...', 'success');
-    
-    // Update localStorage
-    localStorage.setItem('userRole', 'vendor');
-    localStorage.setItem('vendorId', data.vendor.id);
+
+    // Store the fresh token so the vendor role is recognized immediately
+    if (data.token) {
+      localStorage.setItem('token', data.token);
+    }
+    localStorage.removeItem('userRole');
 
     // Redirect to pricing page
     setTimeout(() => {

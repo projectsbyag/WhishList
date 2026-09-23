@@ -1,5 +1,7 @@
 const User = require('../models/User');
 const Deal = require('../models/Deal');
+const Subscription = require('../models/Subscription');
+const { signToken } = require('./authController');
 const { Op } = require('sequelize');
 
 // Register as vendor
@@ -7,13 +9,26 @@ const registerVendor = async (req, res) => {
   try {
     const userId = req.user.id;
 
+    const user = await User.findByPk(userId);
+
+    // Never demote an admin account by converting it to a vendor
+    if (user.role === 'admin') {
+      return res.status(403).json({
+        message: 'Admin accounts cannot be converted to vendor accounts.',
+      });
+    }
+
     // Update user role to 'vendor'
     await User.update({ role: 'vendor' }, { where: { id: userId } });
 
-    const user = await User.findByPk(userId);
+    user.role = 'vendor';
+
+    // Re-issue a fresh token so the vendor role takes effect immediately
+    const token = signToken(user);
 
     res.status(201).json({
       message: 'Vendor profile created successfully',
+      token,
       vendor: {
         id: user.id,
         email: user.email,
@@ -71,6 +86,26 @@ const createDeal = async (req, res) => {
     }
 
     const user = await User.findByPk(req.user.id);
+
+    // Apply the vendor's subscription tier limit if they have an active plan
+    const activeSubscription = await Subscription.findOne({
+      where: {
+        userId: req.user.id,
+        status: 'active',
+        currentPeriodEnd: { [Op.gt]: new Date() },
+      },
+      order: [['currentPeriodEnd', 'DESC']],
+    });
+
+    if (activeSubscription) {
+      const existingCount = await Deal.count({ where: { vendorId: req.user.id } });
+      const maxDeals = activeSubscription.maxDeals;
+      if (maxDeals !== -1 && existingCount >= maxDeals) {
+        return res.status(403).json({
+          message: `You have reached the ${maxDeals}-deal limit for your ${activeSubscription.tier} plan. Please upgrade your subscription to add more deals.`,
+        });
+      }
+    }
 
     const deal = await Deal.create({
       vendorId: req.user.id,
@@ -200,8 +235,23 @@ const getDashboardStats = async (req, res) => {
 
     const user = await User.findByPk(req.user.id);
 
+    const subscription = await Subscription.findOne({
+      where: {
+        userId: req.user.id,
+        status: 'active',
+        currentPeriodEnd: { [Op.gt]: new Date() },
+      },
+      order: [['currentPeriodEnd', 'DESC']],
+    });
+
+    const active = subscription ? 'active' : 'inactive';
+
     res.json({
       storeName: user.name || 'Vendor Store',
+      subscriptionStatus: active,
+      ...(subscription
+        ? { subscription: subscription.toJSON() }
+        : { subscription: null }),
       stats: {
         totalDeals,
         activeDeals,

@@ -1,9 +1,20 @@
 const API_BASE_URL = 'http://localhost:3000/api';
 let currentEditingDealId = null;
 
+function getJwtRole() {
+  const token = localStorage.getItem('token');
+  if (!token) return 'guest';
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.role || 'user';
+  } catch (err) {
+    return 'user';
+  }
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   const token = localStorage.getItem('token');
-  const userRole = localStorage.getItem('userRole');
+  const userRole = getJwtRole();
 
   if (!token || userRole !== 'vendor') {
     window.location.href = 'login.html';
@@ -121,8 +132,8 @@ function renderDealsTable(deals) {
       </td>
       <td class="px-4 py-3 text-sm">${new Date(deal.createdAt).toLocaleDateString()}</td>
       <td class="px-4 py-3 text-sm">
-        <button onclick="editDeal('${deal._id}')" class="text-blue-600 hover:text-blue-800 mr-3">Edit</button>
-        <button onclick="deleteDeal('${deal._id}')" class="text-red-600 hover:text-red-800">Delete</button>
+        <button onclick="editDeal('${deal.id}')" class="text-blue-600 hover:text-blue-800 mr-3">Edit</button>
+        <button onclick="deleteDeal('${deal.id}')" class="text-red-600 hover:text-red-800">Delete</button>
       </td>
     `;
     tbody.appendChild(row);
@@ -309,7 +320,7 @@ async function editDeal(dealId) {
     if (!response.ok) throw new Error('Failed to load deals');
 
     const data = await response.json();
-    const deal = data.deals.find((d) => d._id === dealId);
+    const deal = data.deals.find((d) => String(d.id) === String(dealId));
 
     if (!deal) throw new Error('Deal not found');
 
@@ -421,6 +432,7 @@ function getAuthToken() {
 
 function logout() {
   localStorage.removeItem('token');
+  localStorage.removeItem('userEmail');
   localStorage.removeItem('userRole');
   localStorage.removeItem('vendorId');
   window.location.href = 'login.html';
