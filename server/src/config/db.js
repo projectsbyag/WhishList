@@ -4,7 +4,7 @@ const path = require('path');
 // Create SQLite database instance
 const sequelize = new Sequelize({
   dialect: 'sqlite',
-  storage: path.join(__dirname, '../../wishlist.db'),  // Database file location
+  storage: process.env.DB_STORAGE || path.join(__dirname, '../../wishlist.db'),  // Database file location
   logging: false,  // Disable SQL logging (set to console.log to debug)
 });
 
@@ -20,6 +20,7 @@ const connectDB = async () => {
     // Sync models with database (creates tables if they don't exist)
     await sequelize.sync({ alter: false });
     await ensureVendorStoreColumns();
+    await ensureDealContactLinkColumn();
     console.log('✅ Database tables synced');
   } catch (err) {
     console.error('❌ Database connection error:', err.message);
@@ -46,6 +47,16 @@ const ensureVendorStoreColumns = async () => {
       await qi.addColumn('users', name, { type, allowNull: true });
       console.log(`➕ Added column users.${name}`);
     }
+  }
+};
+
+const ensureDealContactLinkColumn = async () => {
+  const qi = sequelize.getQueryInterface();
+  const columns = await qi.describeTable('deals');
+
+  if (!columns.contactLink) {
+    await qi.addColumn('deals', 'contactLink', { type: DataTypes.STRING, allowNull: true });
+    console.log('➕ Added column deals.contactLink');
   }
 };
 

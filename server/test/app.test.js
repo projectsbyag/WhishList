@@ -8,7 +8,7 @@ jest.mock('../src/config/paystack', () => ({ post: jest.fn(), get: jest.fn() }))
 const request = require('supertest');
 const app = require('../src/app');
 const models = require('../src/models');
-const { sequelize } = require('../src/config/db');
+const { sequelize, connectDB } = require('../src/config/db');
 const paystack = require('../src/config/paystack');
 const { getExpiryStatus } = require('../src/utils/dealStatus');
 const { signToken } = require('../src/controllers/authController');
@@ -177,6 +177,22 @@ test('vendor deal CRUD is limited to its owner and persists dates/contact links'
     .set('Authorization', `Bearer ${other.token}`)).status).toBe(404);
   expect((await request(app).delete(`/api/vendor/deals/${id}`)
     .set('Authorization', `Bearer ${owner.token}`)).status).toBe(200);
+});
+
+test('vendor deal listing migrates the contactLink column in an existing database', async () => {
+  const vendor = await registerVendor();
+  await createSubscription(vendor.user.id);
+  await createDeal(vendor.token);
+
+  const queryInterface = sequelize.getQueryInterface();
+  await queryInterface.removeColumn('deals', 'contactLink');
+  await connectDB();
+
+  const response = await request(app).get('/api/vendor/deals')
+    .set('Authorization', `Bearer ${vendor.token}`);
+
+  expect(response.status).toBe(200);
+  expect(response.body.deals).toHaveLength(1);
 });
 
 test('expiry status uses a three-day Expiring Soon threshold', () => {
