@@ -17,7 +17,7 @@ const {
 router.post('/register', auth, registerVendor);
 
 // Get vendor profile
-router.get('/profile', auth, getVendorProfile);
+router.get('/profile', auth, isVendor, getVendorProfile);
 
 // Update vendor profile
 router.put('/profile', auth, isVendor, updateVendorProfile);

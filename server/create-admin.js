@@ -1,6 +1,6 @@
-require('dotenv').config();
-const bcrypt = require('bcryptjs');
 const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
+const bcrypt = require('bcryptjs');
 const { sequelize, connectDB } = require('./src/config/db');
 const User = require('./src/models/User');
 
@@ -9,9 +9,10 @@ async function createAdmin() {
     await connectDB();
     console.log('Connected to SQLite database');
 
-    const email = 'admin@wishlist.com';
-    const password = 'admin123';
-    const name = 'Admin User';
+    const { ADMIN_EMAIL: email, ADMIN_PASSWORD: password, ADMIN_NAME: name } = process.env;
+    if (!email || !password || !name) {
+      throw new Error('ADMIN_EMAIL, ADMIN_PASSWORD, and ADMIN_NAME must be set');
+    }
 
     // Check if admin already exists
     const existing = await User.findOne({ where: { email } });
@@ -30,8 +31,7 @@ async function createAdmin() {
         role: 'admin',
       });
       console.log('Admin user created successfully!');
-      console.log(`Email: ${email}`);
-      console.log(`Password: ${password}`);
+      console.log(`Admin account created for ${email}`);
     }
 
     await sequelize.close();

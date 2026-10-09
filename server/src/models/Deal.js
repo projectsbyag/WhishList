@@ -59,6 +59,10 @@ const Deal = sequelize.define('Deal', {
     type: DataTypes.STRING,
     allowNull: true,
   },
+  contactLink: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
   available: {
     type: DataTypes.INTEGER,
     defaultValue: 1,

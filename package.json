@@ -1,12 +1,14 @@
 {
-  "name": "wishlist-app",
+  "name": "clearance-deals-platform",
   "version": "1.0.0",
-  "description": "A web application for managing wishlist items.",
+  "description": "A vendor-funded platform for discovering discounted deals.",
   "main": "server/src/index.js",
   "scripts": {
     "start": "node server/src/index.js",
     "dev": "nodemon server/src/index.js",
-    "test": "echo \"No tests specified\" && exit 0",
+    "test": "jest --runInBand",
+    "create-admin": "node server/create-admin.js",
+    "seed:deals": "node server/seed-deals.js",
     "format": "prettier --write \"**/*.{js,jsx,json,css,md,html}\""
   },
   "dependencies": {
@@ -18,21 +20,22 @@
     "express-async-errors": "^3.1.1",
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
-    "mongoose": "^9.1.5",
     "morgan": "^1.11.0",
-    "nodemon": "^3.1.14",
+    "express-rate-limit": "^8.0.0",
     "sequelize": "^6.37.8",
     "sqlite3": "^6.0.1"
   },
   "devDependencies": {
-    "prettier": "^2.8.8"
+    "jest": "^30.0.0",
+    "nodemon": "^3.1.14",
+    "prettier": "^2.8.8",
+    "supertest": "^7.1.0"
   },
   "overrides": {
     "semver": "7.3.8"
   },
   "keywords": [
     "wishlist",
-    "mongodb",
     "express"
   ],
   "author": "Your Name",
