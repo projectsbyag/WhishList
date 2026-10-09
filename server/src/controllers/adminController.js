@@ -1,55 +1,81 @@
 const User = require('../models/User');
 const Deal = require('../models/Deal');
+const Subscription = require('../models/Subscription');
 const { Op } = require('sequelize');
+
+// Latest subscription state for a vendor, derived from real data
+const getVendorSubscriptionInfo = async (userId) => {
+  const sub = await Subscription.findOne({
+    where: { userId },
+    order: [['currentPeriodEnd', 'DESC'], ['createdAt', 'DESC']],
+  });
+
+  if (!sub) return { subscriptionStatus: 'inactive', subscriptionTier: 'free' };
+  if (sub.status === 'cancelled') {
+    return { subscriptionStatus: 'cancelled', subscriptionTier: sub.tier };
+  }
+  const isActive = sub.status === 'active' && new Date(sub.currentPeriodEnd).getTime() > Date.now();
+  return {
+    subscriptionStatus: isActive ? 'active' : 'inactive',
+    subscriptionTier: sub.tier,
+  };
+};
 
 // Get all vendors (admin only)
 const getAllVendors = async (req, res) => {
   try {
-    const { page = 1, limit = 10, search } = req.query;
+    const { page = 1, limit = 10, search, status, tier } = req.query;
 
-    const skip = (page - 1) * limit;
     const filter = { role: 'vendor' };
 
     if (search) {
+      const like = { [Op.like]: `%${search}%` };
       filter[Op.or] = [
-        { name: { [Op.like]: `%${search}%` } },
-        { email: { [Op.like]: `%${search}%` } }
+        { name: like },
+        { email: like },
+        { storeName: like },
       ];
     }
 
     const vendors = await User.findAll({
       where: filter,
       order: [['createdAt', 'DESC']],
-      limit: parseInt(limit),
-      offset: skip,
     });
 
-    // Count deals for each vendor
-    const vendorsWithStats = await Promise.all(
+    let rows = await Promise.all(
       vendors.map(async (vendor) => {
         const dealsCount = await Deal.count({ where: { vendorId: vendor.id } });
+        const subInfo = await getVendorSubscriptionInfo(vendor.id);
         return {
           id: vendor.id,
-          storeName: vendor.name || 'Vendor Store',
-          contactEmail: vendor.email,
-          category: 'general',  // Default category
-          subscriptionStatus: 'active',  // All vendors active in free tier
-          subscriptionTier: 'free',
-          dealsCount: dealsCount,
+          storeName: vendor.storeName || vendor.name || 'Vendor Store',
+          contactEmail: vendor.contactEmail || vendor.email,
+          category: vendor.category || 'general',
+          contactPhone: vendor.contactPhone || '',
+          address: vendor.address || '',
+          website: vendor.website || '',
+          ...subInfo,
+          dealsCount,
           createdAt: vendor.createdAt,
         };
       })
     );
 
-    const total = await User.count({ where: filter });
+    if (status) rows = rows.filter((row) => row.subscriptionStatus === status);
+    if (tier) rows = rows.filter((row) => row.subscriptionTier === tier);
+
+    const limitNum = parseInt(limit);
+    const pageNum = parseInt(page);
+    const total = rows.length;
+    const paged = rows.slice((pageNum - 1) * limitNum, pageNum * limitNum);
 
     res.json({
-      vendors: vendorsWithStats,
+      vendors: paged,
       pagination: {
         total,
-        page: parseInt(page),
-        limit: parseInt(limit),
-        pages: Math.ceil(total / limit),
+        page: pageNum,
+        limit: limitNum,
+        pages: Math.ceil(total / limitNum) || 1,
       },
     });
   } catch (err) {
@@ -78,17 +104,18 @@ const getVendorDetails = async (req, res) => {
     // Get deal count
     const dealsCount = await Deal.count({ where: { vendorId } });
 
+    const subInfo = await getVendorSubscriptionInfo(vendor.id);
+
     res.json({
       vendor: {
         id: vendor.id,
-        storeName: vendor.name || 'Vendor Store',
-        contactEmail: vendor.email,
-        category: 'general',
-        contactPhone: '',
-        address: '',
-        website: '',
-        subscriptionStatus: 'active',
-        subscriptionTier: 'free',
+        storeName: vendor.storeName || vendor.name || 'Vendor Store',
+        contactEmail: vendor.contactEmail || vendor.email,
+        category: vendor.category || 'general',
+        contactPhone: vendor.contactPhone || '',
+        address: vendor.address || '',
+        website: vendor.website || '',
+        ...subInfo,
         dealsCount: dealsCount,
         createdAt: vendor.createdAt,
         verificationStatus: 'verified',
@@ -191,21 +218,31 @@ const editVendor = async (req, res) => {
     }
 
     const updates = {};
-    if (storeName) updates.name = storeName;
+    if (storeName !== undefined) updates.storeName = storeName;
+    if (category !== undefined) updates.category = category;
+    if (contactPhone !== undefined) updates.contactPhone = contactPhone;
+    if (address !== undefined) updates.address = address;
+    if (website !== undefined) updates.website = website;
     if (contactEmail) updates.email = contactEmail;
     if (email) updates.email = email;
 
-    await vendor.update(updates);
+    if (Object.keys(updates).length > 0) {
+      await vendor.update(updates);
+    }
+
+    const subInfo = await getVendorSubscriptionInfo(vendor.id);
 
     res.json({
       message: 'Vendor updated successfully',
       vendor: {
         id: vendor.id,
-        storeName: vendor.name,
-        contactEmail: vendor.email,
-        category: 'general',
-        subscriptionStatus: 'active',
-        subscriptionTier: 'free',
+        storeName: vendor.storeName || vendor.name,
+        contactEmail: vendor.contactEmail || vendor.email,
+        category: vendor.category || 'general',
+        contactPhone: vendor.contactPhone || '',
+        address: vendor.address || '',
+        website: vendor.website || '',
+        ...subInfo,
       },
     });
   } catch (err) {
@@ -214,6 +251,8 @@ const editVendor = async (req, res) => {
 };
 
 // Get admin dashboard stats
+const TIER_PRICES = { basic: 4999, professional: 29999, enterprise: 99999 };
+
 const getAdminStats = async (req, res) => {
   try {
     const totalVendors = await User.count({ where: { role: 'vendor' } });
@@ -221,11 +260,18 @@ const getAdminStats = async (req, res) => {
     const totalDeals = await Deal.count();
     const activeDeals = await Deal.count({ where: { isActive: true } });
 
+    const activeSubs = await Subscription.count({
+      where: { status: 'active', currentPeriodEnd: { [Op.gt]: new Date() } },
+    });
+
+    const subs = await Subscription.findAll({ attributes: ['tier'] });
+    const revenue = subs.reduce((sum, sub) => sum + (TIER_PRICES[sub.tier] || 0), 0);
+
     res.json({
       vendors: {
         total: totalVendors,
-        active: totalVendors,  // All vendors are considered active in SQLite version
-        inactive: 0,
+        active: activeSubs,
+        inactive: Math.max(totalVendors - activeSubs, 0),
         suspended: 0,
       },
       users: {
@@ -239,7 +285,7 @@ const getAdminStats = async (req, res) => {
         inactive: totalDeals - activeDeals,
       },
       revenue: {
-        total: 0,  // No payment system in SQLite version
+        total: revenue,
       },
     });
   } catch (err) {
@@ -278,8 +324,22 @@ const getVendorTransactions = async (req, res) => {
   }
 };
 
+// Get every deal, including inactive and expired ones (admin only)
+const getAllDeals = async (req, res) => {
+  try {
+    const deals = await Deal.findAll({
+      order: [['createdAt', 'DESC']],
+      limit: 500,
+    });
+    res.json(deals);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
 module.exports = {
   getAllVendors,
+  getAllDeals,
   getVendorDetails,
   deactivateVendor,
   activateVendor,

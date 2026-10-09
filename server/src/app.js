@@ -19,6 +19,11 @@ app.use(cors({
   optionsSuccessStatus: 200
 }));
 
+// Paystack webhook needs the raw body for signature verification,
+// so it must be registered before express.json().
+const { handleWebhook } = require('./controllers/paymentController');
+app.post('/api/payment/webhook', express.raw({ type: '*/*', limit: '1mb' }), handleWebhook);
+
 app.use(express.json());
 app.use(morgan('dev'));
 

@@ -4,6 +4,19 @@ const Subscription = require('../models/Subscription');
 const { signToken } = require('./authController');
 const { Op } = require('sequelize');
 
+// Expiry date supplied as YYYY-MM-DD (treated as end of that day) or a full ISO date.
+// Falls back to 30 days from now so every deal always has a working countdown.
+const resolveExpiryDate = (value) => {
+  const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+  if (!value) return new Date(Date.now() + THIRTY_DAYS);
+
+  const raw = String(value).trim();
+  const parsed = /^\d{4}-\d{2}-\d{2}$/.test(raw) ? new Date(`${raw}T23:59:59`) : new Date(raw);
+
+  if (isNaN(parsed.getTime())) return new Date(Date.now() + THIRTY_DAYS);
+  return parsed;
+};
+
 // Register as vendor
 const registerVendor = async (req, res) => {
   try {
@@ -18,10 +31,24 @@ const registerVendor = async (req, res) => {
       });
     }
 
-    // Update user role to 'vendor'
-    await User.update({ role: 'vendor' }, { where: { id: userId } });
+    // Persist the store details collected during vendor registration
+    const storeFields = [
+      'storeName',
+      'storeDescription',
+      'category',
+      'contactEmail',
+      'contactPhone',
+      'address',
+      'website',
+    ];
+    const updates = { role: 'vendor' };
+    storeFields.forEach((field) => {
+      if (req.body[field] !== undefined) updates[field] = req.body[field];
+    });
 
-    user.role = 'vendor';
+    await User.update(updates, { where: { id: userId } });
+
+    Object.assign(user, updates);
 
     // Re-issue a fresh token so the vendor role takes effect immediately
     const token = signToken(user);
@@ -54,15 +81,29 @@ const getVendorProfile = async (req, res) => {
   }
 };
 
-// Update vendor profile
+// Update vendor profile (dashboard Settings tab)
 const updateVendorProfile = async (req, res) => {
   try {
-    const { name, email } = req.body;
+    const allowed = [
+      'storeName',
+      'storeDescription',
+      'category',
+      'contactEmail',
+      'contactPhone',
+      'address',
+      'website',
+      'name',
+    ];
+    const updates = {};
+    allowed.forEach((field) => {
+      if (req.body[field] !== undefined) updates[field] = req.body[field];
+    });
 
-    await User.update(
-      { name, email },
-      { where: { id: req.user.id } }
-    );
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ message: 'No valid settings provided' });
+    }
+
+    await User.update(updates, { where: { id: req.user.id } });
 
     const user = await User.findByPk(req.user.id);
 
@@ -118,7 +159,8 @@ const createDeal = async (req, res) => {
       productLink,
       imageUrl,
       location,
-      store: user.name || 'Vendor Store',
+      store: user.storeName || user.name || 'Vendor Store',
+      expiryDate: resolveExpiryDate(req.body.expiryDate),
       isActive: true,
       available: 1,
     });
@@ -171,7 +213,7 @@ const getVendorDeals = async (req, res) => {
 const updateDeal = async (req, res) => {
   try {
     const { dealId } = req.params;
-    const { title, description, category, discount, originalPrice, discountedPrice, productLink, imageUrl, location, isActive } = req.body;
+    const { title, description, category, discount, originalPrice, discountedPrice, productLink, imageUrl, location, expiryDate, isActive } = req.body;
 
     const deal = await Deal.findOne({
       where: { id: dealId, vendorId: req.user.id }
@@ -192,6 +234,14 @@ const updateDeal = async (req, res) => {
     if (productLink) updates.productLink = productLink;
     if (imageUrl) updates.imageUrl = imageUrl;
     if (location) updates.location = location;
+    if (expiryDate) {
+      const parsed = resolveExpiryDate(expiryDate);
+      updates.expiryDate = parsed;
+      // Re-activate a deal that was auto-expired once its expiry moves into the future
+      if (isActive === undefined && parsed.getTime() > Date.now()) {
+        updates.isActive = true;
+      }
+    }
     if (isActive !== undefined) updates.isActive = isActive;
 
     await deal.update(updates);
@@ -247,7 +297,7 @@ const getDashboardStats = async (req, res) => {
     const active = subscription ? 'active' : 'inactive';
 
     res.json({
-      storeName: user.name || 'Vendor Store',
+      storeName: user.storeName || user.name || 'Vendor Store',
       subscriptionStatus: active,
       ...(subscription
         ? { subscription: subscription.toJSON() }

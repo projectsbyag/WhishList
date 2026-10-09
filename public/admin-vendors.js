@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:3000/api';
+const API_BASE_URL = '/api';
 let currentPage = 1;
 let currentFilters = {};
 let currentEditingVendorId = null;
@@ -37,17 +37,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
-  await loadAdminStats();
-  await loadVendors();
-
-  // Event listeners
-  document.getElementById('filterBtn').addEventListener('click', applyFilters);
-  document.getElementById('searchInput').addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') applyFilters();
+  // Wire up controls first so the search always responds, even if loading is slow
+  document.getElementById('filterForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    applyFilters();
   });
+  document.getElementById('clearBtn').addEventListener('click', clearFilters);
   document.getElementById('prevBtn').addEventListener('click', previousPage);
   document.getElementById('nextBtn').addEventListener('click', nextPage);
   document.getElementById('logoutBtn').addEventListener('click', logout);
+
+  await loadAdminStats();
+  await loadVendors();
 });
 
 // Load admin stats
@@ -65,7 +66,7 @@ async function loadAdminStats() {
     document.getElementById('activeVendors').textContent = data.vendors.active;
     document.getElementById('inactiveVendors').textContent = data.vendors.inactive;
     document.getElementById('suspendedVendors').textContent = data.vendors.suspended;
-    document.getElementById('totalRevenue').textContent = `$${(data.revenue.total || 0).toFixed(2)}`;
+    document.getElementById('totalRevenue').textContent = `₦${(data.revenue.total || 0).toLocaleString('en-NG')}`;
   } catch (err) {
     console.error('Error loading stats:', err);
     showToast('Failed to load statistics', 'error');
@@ -167,10 +168,19 @@ function nextPage() {
 // Apply filters
 async function applyFilters() {
   currentFilters = {
-    search: document.getElementById('searchInput').value,
+    search: document.getElementById('searchInput').value.trim(),
     status: document.getElementById('statusFilter').value,
     tier: document.getElementById('tierFilter').value,
   };
+  await loadVendors(1);
+}
+
+// Reset all filters
+async function clearFilters() {
+  document.getElementById('searchInput').value = '';
+  document.getElementById('statusFilter').value = '';
+  document.getElementById('tierFilter').value = '';
+  currentFilters = {};
   await loadVendors(1);
 }
 

@@ -374,9 +374,10 @@
         // Load deals
         async function loadDeals() {
             try {
-                const res = await fetch('/api/deals', {
+                const res = await fetch('/api/admin/deals', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
+                if (!res.ok) throw new Error('Failed to load deals');
                 const deals = await res.json();
                 
                 updateStats(deals);
@@ -414,7 +415,7 @@
             }
             
             tbody.innerHTML = deals.map(deal => {
-                const isExpired = deal.expiryDate && new Date(deal.expiryDate) < new Date();
+                const isExpired = deal.expiryDate && new Date(deal.expiryDate) <= new Date();
                 const statusClass = deal.isActive && !isExpired ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
                 const statusText = deal.isActive && !isExpired ? 'Active' : 'Inactive';
                 
@@ -444,8 +445,8 @@
                             </span>
                         </td>
                         <td class="px-6 py-4 text-right text-sm font-medium">
-                            <button onclick="editDeal('${deal._id}')" class="text-blue-600 hover:text-blue-900 mr-4">Edit</button>
-                            <button onclick="deleteDeal('${deal._id}')" class="text-red-600 hover:text-red-900">Delete</button>
+                            <button onclick="editDeal('${deal.id}')" class="text-blue-600 hover:text-blue-900 mr-4">Edit</button>
+                            <button onclick="deleteDeal('${deal.id}')" class="text-red-600 hover:text-red-900">Delete</button>
                         </td>
                     </tr>
                 `;
@@ -507,7 +508,7 @@
                 const deal = await res.json();
                 
                 document.getElementById('modalTitle').textContent = 'Edit Deal';
-                document.getElementById('dealId').value = deal._id;
+                document.getElementById('dealId').value = deal.id;
                 document.getElementById('title').value = deal.title;
                 document.getElementById('description').value = deal.description;
                 document.getElementById('category').value = deal.category;

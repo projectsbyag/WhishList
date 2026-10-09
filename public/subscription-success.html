@@ -86,7 +86,7 @@
                         <p class="text-lg font-semibold text-green-600">✓ Active</p>
                     </div>
                     <div class="text-left">
-                        <p class="text-sm text-gray-500 mb-2">Next Billing</p>
+                        <p class="text-sm text-gray-500 mb-2">Access Ends</p>
                         <p class="text-lg font-semibold text-gray-900" id="nextBilling">-</p>
                     </div>
                 </div>
@@ -101,8 +101,8 @@
                             <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
                         </svg>
                         <div>
-                            <p class="font-semibold text-gray-900">Unlimited Deal Creation</p>
-                            <p class="text-sm text-gray-600">Post as many deals as you want</p>
+                            <p class="font-semibold text-gray-900" id="dealsFeatureTitle">Create &amp; Manage Deals</p>
+                            <p class="text-sm text-gray-600" id="dealsFeatureText">Post deals from your vendor dashboard</p>
                         </div>
                     </li>
                     <li class="flex items-start">
@@ -169,7 +169,7 @@
             if (subscriptionDetails.nextBilling) {
                 document.getElementById('nextBilling').textContent = subscriptionDetails.nextBilling;
             } else {
-                // Calculate next billing date (30 days from now)
+                // Access runs for 30 days from now (one-time payment)
                 const nextDate = new Date();
                 nextDate.setDate(nextDate.getDate() + 30);
                 document.getElementById('nextBilling').textContent = nextDate.toLocaleDateString('en-US', {
@@ -177,6 +177,17 @@
                     day: 'numeric',
                     year: 'numeric'
                 });
+            }
+
+            if (subscriptionDetails.maxDeals !== undefined && subscriptionDetails.maxDeals !== null) {
+                const title = document.getElementById('dealsFeatureTitle');
+                const text = document.getElementById('dealsFeatureText');
+                if (subscriptionDetails.maxDeals === -1) {
+                    text.textContent = 'Post as many deals as you want';
+                } else {
+                    title.textContent = `${subscriptionDetails.maxDeals} Deals Allowed`;
+                    text.textContent = `Create up to ${subscriptionDetails.maxDeals} deals on this plan`;
+                }
             }
 
             // Create confetti effect

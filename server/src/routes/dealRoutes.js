@@ -4,12 +4,42 @@ const router = express.Router();
 const Deal = require('../models/Deal');
 const auth = require('../middleware/auth');
 
-// Public listing with optional category filter
+// Public listing with optional category and text search
+let expiryBackfilled = false;
+const backfillExpiryDates = async () => {
+  if (expiryBackfilled) return;
+  expiryBackfilled = true;
+  try {
+    const legacy = await Deal.findAll({ where: { expiryDate: null }, attributes: ['id'] });
+    if (legacy.length === 0) return;
+    await Deal.update(
+      { expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) },
+      { where: { expiryDate: null } }
+    );
+    console.log(`⏳ Set expiry dates on ${legacy.length} legacy deal(s)`);
+  } catch (err) {
+    console.error('Expiry backfill failed', err.message);
+  }
+};
+
 router.get('/', async (req, res) => {
   const { category, q } = req.query;
+
+  // Deals created before expiry dates were introduced need one
+  await backfillExpiryDates();
+
+  // Auto-expire deals whose expiry date has passed
+  await Deal.update(
+    { isActive: false },
+    { where: { isActive: true, expiryDate: { [Op.lte]: new Date() } } }
+  );
+
   const filter = { isActive: true };
   if (category) filter.category = category;
-  if (q) filter.title = { [Op.like]: `%${q}%` };
+  if (q) {
+    const like = { [Op.like]: `%${q}%` };
+    filter[Op.or] = [{ title: like }, { description: like }, { store: like }];
+  }
 
   // If no deals exist yet, insert a small set of sample deals
   const total = await Deal.count();
@@ -128,6 +158,12 @@ router.put('/:id', auth, async (req, res) => {
   try {
     const deal = await Deal.findByPk(req.params.id);
     if (!deal) return res.status(404).json({ message: 'Deal not found' });
+    if (req.body.expiryDate && req.body.isActive === undefined) {
+      const parsed = new Date(req.body.expiryDate);
+      if (!isNaN(parsed.getTime()) && parsed.getTime() > Date.now()) {
+        req.body.isActive = true;
+      }
+    }
     await deal.update(req.body);
     res.json(deal);
   } catch (err) {

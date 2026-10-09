@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:3000/api';
+const API_BASE_URL = '/api';
 let currentEditingDealId = null;
 
 function getJwtRole() {
@@ -116,12 +116,14 @@ function renderDealsTable(deals) {
   tbody.innerHTML = '';
 
   if (deals.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-8 text-center text-gray-500">No deals yet. Create your first deal!</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-500">No deals yet. Create your first deal!</td></tr>';
     return;
   }
 
   deals.forEach((deal) => {
     const row = document.createElement('tr');
+    const expired = deal.expiryDate && new Date(deal.expiryDate).getTime() < Date.now();
+    const expires = deal.expiryDate ? new Date(deal.expiryDate).toLocaleDateString() : 'N/A';
     row.innerHTML = `
       <td class="px-4 py-3">${deal.title}</td>
       <td class="px-4 py-3">${deal.discount}</td>
@@ -130,6 +132,7 @@ function renderDealsTable(deals) {
           ${deal.isActive ? 'Active' : 'Inactive'}
         </span>
       </td>
+      <td class="px-4 py-3 text-sm ${expired ? 'text-red-600 font-semibold' : ''}">${expired ? 'Expired' : expires}</td>
       <td class="px-4 py-3 text-sm">${new Date(deal.createdAt).toLocaleDateString()}</td>
       <td class="px-4 py-3 text-sm">
         <button onclick="editDeal('${deal.id}')" class="text-blue-600 hover:text-blue-800 mr-3">Edit</button>
@@ -231,6 +234,17 @@ async function loadVendorSettings() {
   }
 }
 
+function toDateInputValue(value) {
+  const d = value instanceof Date ? value : new Date(value);
+  if (isNaN(d.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function defaultExpiryDate() {
+  return toDateInputValue(Date.now() + 30 * 24 * 60 * 60 * 1000);
+}
+
 // Open create deal modal
 function openCreateDealModal() {
   currentEditingDealId = null;
@@ -244,6 +258,7 @@ function openCreateDealModal() {
   document.getElementById('dealProductLink').value = '';
   document.getElementById('dealImageUrl').value = '';
   document.getElementById('dealLocation').value = '';
+  document.getElementById('dealExpiryDate').value = defaultExpiryDate();
   document.getElementById('dealModal').classList.remove('hidden');
 }
 
@@ -266,6 +281,7 @@ async function saveDeal() {
       productLink: document.getElementById('dealProductLink').value,
       imageUrl: document.getElementById('dealImageUrl').value,
       location: document.getElementById('dealLocation').value,
+      expiryDate: document.getElementById('dealExpiryDate').value || defaultExpiryDate(),
     };
 
     if (!dealData.title || !dealData.category || !dealData.discount) {
@@ -335,6 +351,7 @@ async function editDeal(dealId) {
     document.getElementById('dealProductLink').value = deal.productLink || '';
     document.getElementById('dealImageUrl').value = deal.imageUrl || '';
     document.getElementById('dealLocation').value = deal.location || '';
+    document.getElementById('dealExpiryDate').value = deal.expiryDate ? toDateInputValue(deal.expiryDate) : defaultExpiryDate();
     document.getElementById('dealModal').classList.remove('hidden');
   } catch (err) {
     console.error('Error loading deal:', err);

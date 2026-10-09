@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeUserProfile();
     initializeMobileMenu();
     initializeDarkMode();
+    initializeSearch();
 
     const getAuthHeaders = () => {
         const t = localStorage.getItem('token');
@@ -32,8 +33,12 @@ document.addEventListener('DOMContentLoaded', () => {
         showLoading(dealsContainer);
         try {
             const category = getUrlParameter('category');
-            const url = category ? `/api/deals?category=${encodeURIComponent(category)}` : '/api/deals';
-            const res = await fetch(url);
+            const q = getUrlParameter('q');
+            const params = new URLSearchParams();
+            if (category) params.set('category', category);
+            if (q) params.set('q', q);
+            const qs = params.toString();
+            const res = await fetch(qs ? `/api/deals?${qs}` : '/api/deals');
             if (!res.ok) {
                 hideLoading(dealsContainer);
                 showEmptyState(dealsContainer, 'Failed to load deals', 'Please try again later.');
@@ -42,7 +47,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await res.json();
             hideLoading(dealsContainer);
             if (data.length === 0) {
-                showEmptyState(dealsContainer, 'No deals found', 'Check back soon for new deals!');
+                showEmptyState(
+                    dealsContainer,
+                    q ? `No deals match "${escapeHtml(q)}"` : 'No deals found',
+                    q ? 'Try a different search term or browse all deals.' : 'Check back soon for new deals!'
+                );
             } else {
                 renderDeals(data);
             }
@@ -53,6 +62,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Header search form: filters the deals page (or navigates to it)
+    function initializeSearch() {
+        const form = document.getElementById('searchForm');
+        const input = document.getElementById('searchInput');
+        if (!form || !input) return;
+        input.value = getUrlParameter('q');
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const term = input.value.trim();
+            if (!term) return;
+            if (dealsContainer) {
+                const url = new URL(window.location.href);
+                url.searchParams.set('q', term);
+                url.searchParams.delete('category');
+                window.history.replaceState({}, '', url);
+                fetchDeals();
+            } else {
+                window.location.href = `deals.html?q=${encodeURIComponent(term)}`;
+            }
+        });
+    }
+
     function renderDeals(deals) {
         if (!dealsContainer) return;
         dealsContainer.innerHTML = '';
@@ -61,8 +92,12 @@ document.addEventListener('DOMContentLoaded', () => {
             card.className = 'deal-card bg-white rounded-2xl shadow-lg overflow-hidden';
             // Support multiple possible expiry fields from the API / DB
             const rawExpiry = d.expiryDate || d.expiresAt || d.expires || d.expiry || d.expires_at || null;
-            const expires = rawExpiry ? new Date(rawExpiry).toISOString() : null;
-            card.dataset.dealId = d._id;
+            let expires = null;
+            if (rawExpiry) {
+                const parsed = new Date(rawExpiry);
+                if (!isNaN(parsed.getTime())) expires = parsed.toISOString();
+            }
+            card.dataset.dealId = d.id;
             const category = d.category ? `<span class="inline-block text-xs px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200">${capitalize(d.category)}</span>` : '';
             const discount = formatDiscount(d.discount);
             // Choose image from multiple possible fields and fallback to placeholder
@@ -100,10 +135,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="text-sm text-gray-700">${renderStars(d.rating || 0)} <span class="ml-2 text-xs">${(d.rating || 0).toFixed(1)}</span></div>
                     </div>
                     <div class="text-sm text-gray-600 dark:text-gray-300 mb-2">Expires: <strong>${expiryText}</strong></div>
-                    <div class="text-4xl font-black text-gray-900 mb-4 countdown-timer" data-end-time="${expires || ''}">--:--:--</div>
+                    <div class="text-4xl font-black text-gray-900 mb-4 countdown-timer" data-end-time="${expires || ''}">${isExpired ? 'EXPIRED' : '--:--:--'}</div>
                     <div class="flex gap-3">
-                        ${sourceLink ? `<a href="${escapeHtml(sourceLink)}" target="_blank" rel="noopener noreferrer" class="claim-link flex-1 bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold py-3 px-6 rounded-xl transition-colors uppercase tracking-wide text-center">Claim Deal</a>` : `<button class="claim-button flex-1 bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold py-3 px-6 rounded-xl transition-colors uppercase tracking-wide" data-deal-id="${d._id}">Claim</button>`}
-                        ${checkIfAdmin() ? `<a href="admin.html#edit-${d._id}" class="ml-2 inline-flex items-center px-3 py-2 border border-gray-200 rounded-lg text-sm text-blue-600 hover:bg-blue-50">Edit</a>` : ''}
+                        ${sourceLink ? `<a href="${escapeHtml(sourceLink)}" target="_blank" rel="noopener noreferrer" class="claim-link flex-1 bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold py-3 px-6 rounded-xl transition-colors uppercase tracking-wide text-center">Claim Deal</a>` : ''}
+                        <button class="claim-button ${sourceLink ? 'flex-none px-5 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white border-2 border-gray-900 dark:border-white' : 'flex-1 bg-yellow-400 hover:bg-yellow-500 text-gray-900'} font-bold py-3 px-6 rounded-xl transition-colors uppercase tracking-wide" data-deal-id="${d.id}" title="Save to wishlist">${sourceLink ? '&#9825; Save' : 'Claim'}</button>
+                        ${checkIfAdmin() ? `<a href="admin.html#edit-${d.id}" class="ml-2 inline-flex items-center px-3 py-2 border border-gray-200 rounded-lg text-sm text-blue-600 hover:bg-blue-50">Edit</a>` : ''}
                     </div>
                 </div>
             `;
@@ -166,20 +202,26 @@ document.addEventListener('DOMContentLoaded', () => {
     function startDealCountdowns() {
         if (_dealTimerInterval) clearInterval(_dealTimerInterval);
         const timers = Array.from(document.querySelectorAll('.countdown-timer'));
+        const pad = (n) => String(n).padStart(2, '0');
         function tick() {
             const now = Date.now();
             timers.forEach(timer => {
                 const endAttr = timer.getAttribute('data-end-time');
-                if (!endAttr) return timer.textContent = '--:--:--';
+                if (!endAttr) return timer.textContent = 'No expiry';
                 const end = new Date(endAttr).getTime();
+                if (isNaN(end)) return timer.textContent = 'No expiry';
                 const diff = end - now;
                 if (diff > 0) {
-                    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-                    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-                    timer.textContent = `${String(hours).padStart(2,'0')}:${String(minutes).padStart(2,'0')}:${String(seconds).padStart(2,'0')}`;
-                } else {
+                    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                    const hours = Math.floor(diff / (1000 * 60 * 60)) % 24;
+                    const minutes = Math.floor(diff / (1000 * 60)) % 60;
+                    const seconds = Math.floor(diff / 1000) % 60;
+                    timer.textContent = days > 0
+                        ? `${days}d ${pad(hours)}:${pad(minutes)}:${pad(seconds)}`
+                        : `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+                } else if (timer.textContent !== 'EXPIRED') {
                     timer.textContent = 'EXPIRED';
+                    timer.classList.add('text-red-500');
                     const card = timer.closest('.deal-card');
                     if (card) card.style.opacity = '0.5';
                 }
@@ -270,7 +312,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function hideLoading(container) {
-        // Loading is cleared when content is rendered
+        if (container && container.querySelector('.animate-spin')) {
+            container.innerHTML = '';
+        }
     }
 
     // Empty State
@@ -449,16 +493,16 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const response = await fetch('/api/wishlist', { headers: { ...getAuthHeaders() } });
             if (response.status === 401) return window.location.href = '/login.html';
+            if (!response.ok) throw new Error(`Request failed with status ${response.status}`);
             const data = await response.json();
             hideLoading(wishlistContainer);
             renderWishlistItems(data);
-            if (data.length === 0) {
-                const empty = document.getElementById('emptyState');
-                if (empty) empty.classList.remove('hidden');
-            }
+            const empty = document.getElementById('emptyState');
+            if (empty) empty.classList.toggle('hidden', data.length !== 0);
         } catch (error) {
             console.error('Error fetching wishlist items:', error);
             hideLoading(wishlistContainer);
+            showEmptyState(wishlistContainer, 'Could not load your wishlist', 'Please try again in a moment.');
             showToast('Failed to load wishlist', 'error');
         }
     };
@@ -553,8 +597,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Initial fetch of wishlist items
-    if (wishlistContainer && localStorage.getItem('token')) {
-        fetchWishlistItems();
+    if (wishlistContainer) {
+        if (localStorage.getItem('token')) {
+            fetchWishlistItems();
+        } else {
+            wishlistContainer.innerHTML = `
+                <div class="col-span-full text-center py-20">
+                    <svg class="w-24 h-24 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                    </svg>
+                    <h3 class="text-2xl font-bold text-gray-400 mb-2">Sign in to see your wishlist</h3>
+                    <p class="text-gray-500 mb-6">Save deals you love and come back to them anytime.</p>
+                    <a href="login.html" class="inline-block bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold px-8 py-3 rounded-xl transition-colors">Login</a>
+                </div>`;
+        }
     }
     // If on deals page, fetch deals
     if (dealsContainer) fetchDeals();

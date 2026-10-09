@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:3000/api';
+const API_BASE_URL = '/api';
 
 function getJwtRole() {
   const token = localStorage.getItem('token');
@@ -55,7 +55,7 @@ function renderPricingCards(plans) {
       <div class="mb-6">
         <div class="flex items-baseline">
           <span class="text-4xl font-bold text-gray-900">₦${plan.price.toLocaleString()}</span>
-          <span class="text-gray-600 ml-2">/month</span>
+          <span class="text-gray-600 ml-2">/30 days</span>
         </div>
       </div>
 
@@ -78,7 +78,7 @@ function renderPricingCards(plans) {
       </button>
 
       <p class="text-center text-gray-600 text-sm mt-4">
-        First month, then ₦${plan.price.toLocaleString()}/month. Cancel anytime.
+        One-time payment for 30 days of access. No auto-renewal.
       </p>
     `;
 
@@ -168,6 +168,7 @@ async function verifyPayment(reference) {
       amount: data.plan?.price || 0,
       nextBilling: data.plan?.nextBilling ? new Date(data.plan.nextBilling).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : null,
       tier: data.plan?.tier || 'professional',
+      maxDeals: data.plan?.maxDeals,
     };
     
     sessionStorage.setItem('subscriptionDetails', JSON.stringify(subscriptionDetails));

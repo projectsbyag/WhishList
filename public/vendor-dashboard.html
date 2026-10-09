@@ -106,12 +106,13 @@
                                 <th class="px-4 py-3 text-left font-medium text-gray-700">Deal Title</th>
                                 <th class="px-4 py-3 text-left font-medium text-gray-700">Discount</th>
                                 <th class="px-4 py-3 text-left font-medium text-gray-700">Status</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-700">Expires</th>
                                 <th class="px-4 py-3 text-left font-medium text-gray-700">Created</th>
                                 <th class="px-4 py-3 text-left font-medium text-gray-700">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="dealsList" class="divide-y divide-gray-200">
-                            <tr><td colspan="5" class="px-4 py-8 text-center text-gray-500">No deals yet</td></tr>
+                            <tr><td colspan="6" class="px-4 py-8 text-center text-gray-500">No deals yet</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -131,7 +132,8 @@
         <!-- Settings Tab -->
         <div id="settings-tab" class="tab-content hidden">
             <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <h2 class="text-lg font-semibold text-gray-900 mb-6">Store Settings</h2>
+                <h2 class="text-lg font-semibold text-gray-900 mb-2">Store Settings</h2>
+                <p class="text-sm text-gray-500 mb-6">These details appear on your deals and vendor profile. Saved settings persist to your account.</p>
                 <form id="settingsForm" class="space-y-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Store Name</label>
@@ -213,9 +215,16 @@
                     <label class="block text-sm font-medium text-gray-700 mb-1">Image URL</label>
                     <input type="url" id="dealImageUrl" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                 </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Location</label>
-                    <input type="text" id="dealLocation" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                        <input type="text" id="dealLocation" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Expiry Date</label>
+                        <input type="date" id="dealExpiryDate" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <p class="text-xs text-gray-500 mt-1">Defaults to 30 days from now.</p>
+                    </div>
                 </div>
             </div>
             <div class="border-t border-gray-200 px-6 py-4 flex justify-end space-x-3">

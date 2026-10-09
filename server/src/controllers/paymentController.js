@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const paystack = require('../config/paystack');
 const User = require('../models/User');
 const Subscription = require('../models/Subscription');
@@ -94,6 +95,36 @@ const initializePayment = async (req, res) => {
   }
 };
 
+// Create (or renew) the 30-day subscription for a paid reference. Idempotent.
+const activateSubscriptionForReference = async ({ userId, tier, reference }) => {
+  const plan = SUBSCRIPTION_TIERS[tier];
+  if (!plan) throw new Error('Unknown subscription tier');
+
+  const now = new Date();
+  const periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+  // Ensure the paying user is a vendor
+  await User.update({ role: 'vendor' }, { where: { id: userId } });
+
+  const fields = {
+    userId,
+    tier,
+    status: 'active',
+    currentPeriodStart: now,
+    currentPeriodEnd: periodEnd,
+    maxDeals: plan.maxDeals,
+    features: plan.features,
+    paystackReference: reference,
+  };
+
+  const existing = await Subscription.findOne({ where: { paystackReference: reference } });
+  if (existing) {
+    await existing.update(fields);
+    return existing;
+  }
+  return Subscription.create(fields);
+};
+
 const verifyPayment = async (req, res) => {
   try {
     const { reference } = req.body;
@@ -110,10 +141,12 @@ const verifyPayment = async (req, res) => {
 
     // Determine which tier was paid for (from the metadata captured at initialization)
     let tier = 'basic';
+    let metadataUserId = null;
     const metadata = data.data?.metadata;
     if (metadata) {
       const raw = typeof metadata === 'string' ? JSON.parse(metadata) : metadata;
       if (raw && raw.tier) tier = raw.tier;
+      if (raw && raw.userId) metadataUserId = raw.userId;
     }
 
     const plan = SUBSCRIPTION_TIERS[tier];
@@ -121,37 +154,21 @@ const verifyPayment = async (req, res) => {
       return res.status(400).json({ message: 'Unknown subscription tier' });
     }
 
-    const now = new Date();
-    const periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-
-    // Ensure the paying user is a vendor
-    await User.update({ role: 'vendor' }, { where: { id: req.user.id } });
-
-    // Record the paid subscription
-    let subscription = await Subscription.findOne({ where: { paystackReference: reference } });
-
-    if (!subscription) {
-      subscription = await Subscription.create({
-        userId: req.user.id,
-        tier,
-        status: 'active',
-        currentPeriodStart: now,
-        currentPeriodEnd: periodEnd,
-        maxDeals: plan.maxDeals,
-        features: plan.features,
-        paystackReference: reference,
-      });
-    } else {
-      await subscription.update({
-        userId: req.user.id,
-        tier,
-        status: 'active',
-        currentPeriodStart: now,
-        currentPeriodEnd: periodEnd,
-        maxDeals: plan.maxDeals,
-        features: plan.features,
-      });
+    // The reference must belong to the logged-in user
+    if (metadataUserId && Number(metadataUserId) !== Number(req.user.id)) {
+      return res.status(403).json({ message: 'This payment reference belongs to another account' });
     }
+
+    // The amount actually charged must match the plan price
+    if (data.data.amount !== plan.price * 100) {
+      return res.status(400).json({ message: 'Paid amount does not match the selected plan' });
+    }
+
+    const subscription = await activateSubscriptionForReference({
+      userId: req.user.id,
+      tier,
+      reference,
+    });
 
     res.json({
       status: true,
@@ -163,7 +180,7 @@ const verifyPayment = async (req, res) => {
         name: plan.name,
         price: plan.price,
         maxDeals: plan.maxDeals,
-        nextBilling: periodEnd.toISOString(),
+        nextBilling: subscription.currentPeriodEnd.toISOString(),
       },
     });
   } catch (err) {
@@ -171,6 +188,60 @@ const verifyPayment = async (req, res) => {
     res.status(502).json({ message: `Payment verification failed: ${message}` });
   }
 };
+
+// Paystack webhook: activates subscriptions even if the browser never calls /verify.
+// Requires the raw request body, so this route must be registered before express.json().
+const handleWebhook = async (req, res) => {
+  const rawBody = Buffer.isBuffer(req.body) ? req.body : Buffer.from(req.body || '', 'utf8');
+  const signature = req.headers['x-paystack-signature'];
+
+  if (!isValidWebhookSignature(rawBody, signature)) {
+    return res.status(401).json({ message: 'Invalid webhook signature' });
+  }
+
+  let event;
+  try {
+    event = JSON.parse(rawBody.toString('utf8'));
+  } catch (err) {
+    return res.status(400).json({ message: 'Invalid payload' });
+  }
+
+  // Always acknowledge so Paystack stops retrying
+  res.status(200).json({ received: true });
+
+  try {
+    if (event.event !== 'charge.success') return;
+
+    const charge = event.data || {};
+    const reference = charge.reference;
+    if (!reference || charge.status !== 'success') return;
+
+    let tier = 'basic';
+    let userId = null;
+    const metadata = charge.metadata;
+    if (metadata) {
+      const raw = typeof metadata === 'string' ? JSON.parse(metadata) : metadata;
+      if (raw && raw.tier) tier = raw.tier;
+      if (raw && raw.userId) userId = raw.userId;
+    }
+    if (!userId || !SUBSCRIPTION_TIERS[tier]) return;
+
+    await activateSubscriptionForReference({ userId, tier, reference });
+    console.log(`✅ Webhook activated subscription for reference ${reference}`);
+  } catch (err) {
+    console.error('Webhook processing error:', err.message);
+  }
+};
+
+function isValidWebhookSignature(rawBody, signature) {
+  const secret = process.env.PAYSTACK_SECRET_KEY;
+  if (!secret || !signature) return false;
+
+  const expected = crypto.createHmac('sha512', secret).update(rawBody).digest('hex');
+  const a = Buffer.from(expected, 'utf8');
+  const b = Buffer.from(String(signature), 'utf8');
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
 
 // Get subscription status
 const getSubscriptionStatus = async (req, res) => {
@@ -256,6 +327,7 @@ const getTransactionHistory = async (req, res) => {
 module.exports = {
   initializePayment,
   verifyPayment,
+  handleWebhook,
   getSubscriptionStatus,
   getPricingPlans,
   cancelSubscription,

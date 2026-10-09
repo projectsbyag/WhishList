@@ -3,6 +3,7 @@ const router = express.Router();
 const auth = require('../middleware/auth');
 const {
   getAllVendors,
+  getAllDeals,
   getVendorDetails,
   deactivateVendor,
   activateVendor,
@@ -22,6 +23,9 @@ const isAdmin = (req, res, next) => {
 
 // Admin stats
 router.get('/stats', auth, isAdmin, getAdminStats);
+
+// Deal management (includes inactive + expired deals)
+router.get('/deals', auth, isAdmin, getAllDeals);
 
 // Vendor management
 router.get('/vendors', auth, isAdmin, getAllVendors);
